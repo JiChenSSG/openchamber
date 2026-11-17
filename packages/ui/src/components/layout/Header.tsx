@@ -1,4 +1,6 @@
 import React, { useEffect } from 'react';
+import { FlowIcon } from '@/components/flow/FlowIcon';
+import { selectWorkflowsShown } from '@/lib/workflows/availability';
 import { formatShortcutForDisplay, getEffectiveShortcutCombo } from '@/lib/shortcuts';
 import { TooltipLabelWithShortcut } from '@/components/ui/action-toolbar';
 import { useGuestsStore } from '@/lib/guests/store';
@@ -489,6 +491,8 @@ export const Header: React.FC = () => {
   const isIntegrationsCatalogSurfaceOpen = useUIStore((state) => state.isIntegrationsCatalogOpen);
   const isUsageStatsSurfaceOpen = useUIStore((state) => state.isUsageStatsPageOpen);
   const isSourceBoardSurfaceOpen = useUIStore((state) => state.isSourceBoardOpen);
+  const isFlowBoardSurfaceOpen = useUIStore((state) => state.isFlowBoardOpen);
+  const showFlowBoard = useUIStore(selectWorkflowsShown);
   const isOverviewSurfaceOpen = useUIStore((state) => state.isOverviewOpen);
   const worktreesSurfaceProjectId = useUIStore((state) => state.worktreesPageProjectId);
   const spacesSurfaceProjectId = useUIStore((state) => (state.isolatedSpacesEnabled ? state.spacesPageProjectId : null));
@@ -501,6 +505,7 @@ export const Header: React.FC = () => {
     return project?.label?.trim() || project?.path?.split('/').pop() || null;
   });
   const activeSurfaceHeader = React.useMemo<{ title: string; subtitle: string | null } | null>(() => {
+    if (isFlowBoardSurfaceOpen) return { title: t('flow.title'), subtitle: null };
     if (guestPage) return { title: guestPage.pageTitle ?? guestPage.name, subtitle: null };
     if (isScheduledSurfaceOpen) {
       return { title: t('sessions.scheduledTasks.dialog.title'), subtitle: null };
@@ -533,7 +538,7 @@ export const Header: React.FC = () => {
       return { title: overviewRunTitle ?? t('multirun.overview.headerTitle'), subtitle: t('multirun.overview.headerTitle') };
     }
     return null;
-  }, [guestPage, isArchiveSurfaceOpen, isIntegrationsCatalogSurfaceOpen, overviewRunTitle, runOverviewKey, isScheduledSurfaceOpen, isSourceBoardSurfaceOpen, isOverviewSurfaceOpen, isUsageStatsSurfaceOpen, spacesSurfaceProjectId, surfaceProjectLabel, t, worktreesSurfaceProjectId]);
+  }, [guestPage, isArchiveSurfaceOpen, isFlowBoardSurfaceOpen, isIntegrationsCatalogSurfaceOpen, overviewRunTitle, runOverviewKey, isScheduledSurfaceOpen, isSourceBoardSurfaceOpen, isOverviewSurfaceOpen, isUsageStatsSurfaceOpen, spacesSurfaceProjectId, surfaceProjectLabel, t, worktreesSurfaceProjectId]);
 
 
   // The header's Mini Chat button opens whatever is on screen: the new-session
@@ -1152,6 +1157,10 @@ export const Header: React.FC = () => {
             </Tooltip>
           ) : null}
 
+          {!isVSCode && showFlowBoard && <Tooltip>
+            <TooltipTrigger asChild><button type="button" aria-label={t('flow.title')} aria-pressed={isFlowBoardSurfaceOpen} onClick={() => useUIStore.getState().setFlowBoardOpen(!isFlowBoardSurfaceOpen)} className={cn(DESKTOP_HEADER_ICON_BUTTON_CLASS, isFlowBoardSurfaceOpen && 'oc-selected')}><FlowIcon className="size-4" /></button></TooltipTrigger>
+            <TooltipContent side="bottom">{t('flow.title')}</TooltipContent>
+          </Tooltip>}
           <WindowsWindowControls visible={endEdgeOwnedByInWindowControls} position={windowControlsSide} />
         </div>
       </div>

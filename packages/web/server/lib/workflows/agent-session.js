@@ -159,13 +159,15 @@ export const createWorkflowAgentSessions = ({
     }
   };
 
-  const prompt = async (client, sessionId, text, signal) => {
+  const prompt = async (client, sessionId, text, signal, skills = []) => {
     const afterIdleId = await latestIdleId(client, sessionId);
     // A run stopped meanwhile sends nothing; one stopped while the prompt was
     // on its way interrupts the turn it started, which the run's own
     // interrupts may have missed.
     if (signal.aborted) throw new WorkflowAgentStopped();
-    await client.session.prompt({ sessionID: sessionId, text });
+    const input = { sessionID: sessionId, text };
+    if (skills.length) input.skills = skills.map((id) => ({ id }));
+    await client.session.prompt(input);
     if (signal.aborted) {
       await client.session.interrupt({ sessionID: sessionId }).catch(() => undefined);
       throw new WorkflowAgentStopped();
@@ -194,7 +196,7 @@ export const createWorkflowAgentSessions = ({
    * Resolves to `{ sessionId, outcome }`, where outcome
    * is dispatch-results' `{ state, text, errorMessage }`.
    */
-  const start = async ({ directory, parentSessionId, title, agent, model, allowTools = [], text, signal, onSession }) => {
+  const start = async ({ directory, parentSessionId, title, agent, model, skills = [], allowTools = [], text, signal, onSession }) => {
     const client = await getClient(directory);
     let modelRef = model ? parseModelRef(model) : null;
     if (model && !modelRef) throw new Error(`model must be provider/model or provider/model#variant, got ${model}`);
@@ -220,7 +222,7 @@ export const createWorkflowAgentSessions = ({
     const created = sessionSchema.parse(await client.session.create(request));
     await onSession(created.id);
     if (signal.aborted) throw new WorkflowAgentStopped();
-    const outcome = await prompt(client, created.id, text, signal);
+    const outcome = await prompt(client, created.id, text, signal, skills);
     return { sessionId: created.id, outcome };
   };
 

@@ -59,6 +59,7 @@ const loadArchiveView = () => import('@/components/views/ArchiveView').then((m) 
 const loadIntegrationsCatalogView = () => import('@/components/views/IntegrationsCatalogView').then((m) => m.IntegrationsCatalogView);
 const loadUsageStatsView = () => import('@/components/views/usage/UsageStatsView').then((m) => m.UsageStatsView);
 const loadSourceBoardView = () => import('@/components/sourceBoard/SourceBoardView').then((m) => m.SourceBoardView);
+const loadFlowBoardView = () => import('@/components/flow/FlowBoardView').then((m) => m.FlowBoardView);
 const loadOverviewView = () => import('@/components/overview/OverviewView').then((m) => m.OverviewView);
 const loadWorktreesView = () => import('@/components/views/WorktreesView').then((m) => m.WorktreesView);
 const loadSpacesView = () => import('@/components/views/SpacesView').then((m) => m.SpacesView);
@@ -129,6 +130,7 @@ export const MainLayout: React.FC = () => {
     const isIntegrationsCatalogOpen = useUIStore((state) => state.isIntegrationsCatalogOpen);
     const isUsageStatsPageOpen = useUIStore((state) => state.isUsageStatsPageOpen);
     const isSourceBoardOpen = useUIStore((state) => state.isSourceBoardOpen);
+    const isFlowBoardOpen = useUIStore((state) => state.isFlowBoardOpen);
     const isOverviewOpen = useUIStore((state) => state.isOverviewOpen);
     const worktreesPageProjectId = useUIStore((state) => state.worktreesPageProjectId);
     // The spaces page exists only while the feature's switch is on.
@@ -151,7 +153,7 @@ export const MainLayout: React.FC = () => {
     // Any full-page surface replacing the chat area. While open, the chat is
     // fully hidden (not just covered) so none of its floating chrome bleeds
     // through, and selecting a session or draft anywhere closes the surface.
-    const isSurfacePageOpen = isScheduledTasksPageOpen || isArchivePageOpen || isIntegrationsCatalogOpen || isUsageStatsPageOpen || isSourceBoardOpen || isOverviewOpen || Boolean(worktreesPageProjectId) || isSpacesPageOpen || isRunOverviewOpen || Boolean(guestPage);
+    const isSurfacePageOpen = isFlowBoardOpen || isScheduledTasksPageOpen || isArchivePageOpen || isIntegrationsCatalogOpen || isUsageStatsPageOpen || isSourceBoardOpen || isOverviewOpen || Boolean(worktreesPageProjectId) || isSpacesPageOpen || isRunOverviewOpen || Boolean(guestPage);
     const mainRef = React.useRef<HTMLElement | null>(null);
     // Cmd/Ctrl+W in the desktop app closes the page covering the chat before
     // it closes the window. The page is the place the user last worked in, so
@@ -250,7 +252,8 @@ export const MainLayout: React.FC = () => {
                                                     <ErrorBoundary><OnDemand needed load={loadUsageStatsView} onFailure={closeMainSurfaces} /></ErrorBoundary>
                                                 </div>
                                             )}
-                                            <OnDemand needed={isSourceBoardOpen} load={loadSourceBoardView} onFailure={closeMainSurfaces} />
+                                             <OnDemand needed={isSourceBoardOpen} load={loadSourceBoardView} onFailure={closeMainSurfaces} />
+                                             {isFlowBoardOpen && <ErrorBoundary><OnDemand needed load={loadFlowBoardView} onFailure={closeMainSurfaces} /></ErrorBoundary>}
                                             <ErrorBoundary><OnDemand needed={isOverviewOpen} load={loadOverviewView} onFailure={closeMainSurfaces} /></ErrorBoundary>
                                             <ErrorBoundary><OnDemand needed={Boolean(worktreesPageProjectId)} load={loadWorktreesView} onFailure={closeMainSurfaces} /></ErrorBoundary>
                                             {isSpacesPageOpen ? <ErrorBoundary><OnDemand needed load={loadSpacesView} onFailure={closeMainSurfaces} /></ErrorBoundary> : null}

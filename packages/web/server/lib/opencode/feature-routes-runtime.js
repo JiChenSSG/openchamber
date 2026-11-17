@@ -318,6 +318,7 @@ export const createFeatureRoutesRuntime = (dependencies) => {
       openchamberVersion,
       // Absent in builds without workflows; their routes are then not served.
       workflowRuntime = null,
+      flowRuntime = null,
     } = routeDependencies;
 
     registerSettingsUtilityRoutes(app, {
@@ -404,6 +405,10 @@ export const createFeatureRoutesRuntime = (dependencies) => {
 
     registerOpenChamberControlRoutes(app, { controlService: openChamberControlService });
     if (workflowRuntime) registerWorkflowRoutes(app, workflowRuntime);
+    if (flowRuntime) {
+      const { registerFlowRoutes } = await import('../flow/routes.js');
+      registerFlowRoutes(app, flowRuntime);
+    }
 
     registerMarkdownImageGrantRoutes(app, {
       fsPromises,

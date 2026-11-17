@@ -13,7 +13,7 @@ afterEach(async () => {
 
 const DENIAL = { action: 'integration.use', resource: 'plugin:leakshield', effect: 'deny' };
 
-const createHarness = async ({ settings = {}, env = {}, listExtensionSkillDirectories, listExtensionPluginDirectories, openchamberVersion, readPluginDenials } = {}) => {
+const createHarness = async ({ settings = {}, env = {}, storageEnv, listExtensionSkillDirectories, listExtensionPluginDirectories, openchamberVersion, readPluginDenials } = {}) => {
   const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'openchamber-managed-config-'));
   temporaryDirectories.push(dataDir);
   const agentToolRuntime = {
@@ -35,6 +35,7 @@ const createHarness = async ({ settings = {}, env = {}, listExtensionSkillDirect
     path,
     instanceDir: dataDir,
     env,
+    storageEnv,
     agentToolRuntime,
     readSettings: () => current.settings,
     listExtensionSkillDirectories,
@@ -47,6 +48,12 @@ const createHarness = async ({ settings = {}, env = {}, listExtensionSkillDirect
 };
 
 describe('managed OpenCode config file', () => {
+  it.each([false, true])('keeps private data and shared config with a user-owned config: %s', async (owned) => {
+    const storageEnv = { XDG_DATA_HOME: '/flow', XDG_STATE_HOME: '/flow/state', XDG_CACHE_HOME: '/flow/cache', OPENCODE_DB: '/flow/opencode/opencode.db', OPENCODE_CONFIG_DIR: '/home/.config/opencode' };
+    const { runtime, agentToolRuntime } = await createHarness({ env: owned ? { OPENCODE_CONFIG: '/shared/opencode.json' } : {}, storageEnv });
+    agentToolRuntime.createChildEnv.mockReturnValue({ OPENCHAMBER_AGENT_TOOL_URL: 'http://localhost/callback', OPENCHAMBER_AGENT_TOOL_TOKEN: 'test-token', XDG_DATA_HOME: '/original', OPENCODE_DB: '/original/opencode.db', OPENCODE_CONFIG_DIR: '/private-config' });
+    expect(await runtime.buildManagedChildEnv()).toMatchObject(storageEnv);
+  });
   it('points the child at a config file listing the enabled plugins', async () => {
     const { dataDir, runtime, readConfigFile, titleDirectory } = await createHarness({
       settings: {},

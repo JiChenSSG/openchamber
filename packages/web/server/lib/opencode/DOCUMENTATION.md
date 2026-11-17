@@ -476,7 +476,38 @@ because the server closed its own pipes. The
 check PID exit plus registry cleanup. macOS results do not validate Windows
 ConPTY or Console Window Host behavior.
 
+## Flow managed storage
+
+Flow loads `flow-storage-init.js` before the server or Electron module graph.
+Host readers and the managed child use the Flow data directory as
+`XDG_DATA_HOME`, its `state/` and `cache/` folders for state/cache, and
+`<Flow data directory>/opencode/opencode.db` as `OPENCODE_DB`. Inherited database
+overrides do not select the official app's database. The managed config returns
+these reserved values above user environment settings, and the V1 migration
+top-up receives the final spawn environment. No original database is copied.
+
+The early initializer pins `OPENCODE_CONFIG_DIR` to `~/.config/opencode` for
+both host file editors and the managed child. Models, agents, commands and
+skills use that shared global configuration. Inherited shell and user-environment
+directory overrides cannot move this root. `XDG_CONFIG_HOME` remains unchanged
+for other tools. Editing shared configuration affects both apps; startup neither
+copies nor overwrites those files.
+
+Explicit `OPENCODE_CONFIG` files and project configuration retain their normal
+layering. The private managed file only overlays app-owned integrations; it does
+not replace the shared user config. OAuth accounts in the private database may
+need a new login. An explicitly configured external OpenCode server retains its
+own configuration and storage policy.
+
+### Why storage initializes before imports
+
+Some host readers capture OpenCode paths when their modules load. Assigning
+paths only while spawning the child leaves host readers on a different data or
+config directory. Early initialization gives both graphs the same private-data
+and shared-config contract without moving other tools' XDG configuration.
+
 ## Public exports (env-runtime.js)
+
 - `createOpenCodeEnvRuntime(dependencies)`: creates runtime that owns OpenCode CLI environment and binary discovery state.
 - OpenCode CLI resolution order is persisted settings, environment overrides, bundled Desktop CLI when available, PATH, known install locations, then platform shell discovery. A path pinned by the administrator (`opencodeBinary` in the machine policy file, `../enterprise-mode.js`) comes before all of them and has no fallback: `applyOpencodeBinaryFromSettings()` and `ensureOpencodeCliEnv()` resolve only that path (source `policy`), an unusable pin fails strict start with `OPENCODE_BINARY_INVALID`, and a removed pin hands resolution back to the order above. While pinned, the install-v2 and upgrade capabilities report unsupported (`reason: 'policy'`) and upgrade status never announces a newer version.
 - Automatic bundled resolution under `OPENCHAMBER_RUNTIME=desktop` stays in runtime state and is returned to the managed launch function, including on OpenCode restart. It does not populate `process.env.OPENCODE_BINARY`: AppImage updater relaunch inherits that environment and would mistake the previous bundle path for an explicit override. Explicit settings/env selections and non-desktop or non-bundled resolution retain their existing environment behavior. This prevents future inheritance; it does not reinterpret overrides already inherited from older releases.

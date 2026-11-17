@@ -1,3 +1,4 @@
+import { flowStorageEnv } from './lib/opencode/flow-storage-init.js';
 import { installOpenCodeV2, supportsOpenCodeV2Install } from './lib/opencode/v2-install.js';
 import { describeOpenCodeCompatibility, readOpenCodeCliVersion, readExternalOpenCodeVersion } from './lib/opencode/compatibility.js';
 import 'reflect-metadata';
@@ -135,6 +136,8 @@ import { createMergeFollowRuntime } from './lib/github/merge-follow.js';
 import { createWorkflowAgentSessions } from './lib/workflows/agent-session.js';
 import { createWorkflowRuntime } from './lib/workflows/runtime.js';
 import { createWorkflowRunStore } from './lib/workflows/store.js';
+import { createFlowStore } from './lib/flow/store.js';
+import { createFlowRuntime } from './lib/flow/runtime.js';
 import { createRoutingRuntime } from './lib/routing/runtime.js';
 import { createJevClient } from './lib/routing/jev.js';
 import { createSessionWorkRuntime } from './lib/session-work/runtime.js';
@@ -362,11 +365,11 @@ const sanitizeSkillCatalogs = (...args) => settingsNormalizationRuntime.sanitize
 const sanitizeProjects = (...args) => settingsNormalizationRuntime.sanitizeProjects(...args);
 
 // Every OpenChamber-owned file and folder hangs off one root: the default
-// `~/.config/openchamber`, or `OPENCHAMBER_DATA_DIR` when set. The user
+// `~/.config/openchamber-flow`, or `OPENCHAMBER_DATA_DIR` when set. The user
 // folders (`projects/`, `themes/`, `speech-models/`) are copied into a custom
 // root once at startup (`migrateLegacyUserDirs`), because they used to ignore
 // the variable.
-const OPENCHAMBER_DEFAULT_CONFIG_ROOT = path.join(os.homedir(), '.config', 'openchamber');
+const OPENCHAMBER_DEFAULT_CONFIG_ROOT = path.join(os.homedir(), '.config', 'openchamber-flow');
 const OPENCHAMBER_USER_CONFIG_ROOT = process.env.OPENCHAMBER_DATA_DIR
   ? path.resolve(process.env.OPENCHAMBER_DATA_DIR)
   : OPENCHAMBER_DEFAULT_CONFIG_ROOT;
@@ -1454,9 +1457,12 @@ const workflowAgentSessions = createWorkflowAgentSessions({
   waitForOpenCodeReady: (...args) => waitForOpenCodeReady(...args),
   globalEventHub: globalMessageStreamHub,
 });
+// Git routes fill the shared bridge before user requests can start a workflow.
+const scheduledWorktreeBridge = createUnregisteredScheduledWorktreeBridge();
 const workflowRuntime = createWorkflowRuntime({
   store: createWorkflowRunStore({ fsPromises, path, dataDir: OPENCHAMBER_DATA_DIR }),
   agentSessions: workflowAgentSessions,
+  worktrees: scheduledWorktreeBridge,
   postSynthetic: workflowAgentSessions.postSynthetic,
   // Declared further down; only ever called after startup.
   broadcast: (event) => broadcastOpenChamberUiEvent(event),
@@ -1464,7 +1470,18 @@ const workflowRuntime = createWorkflowRuntime({
   fsPromises,
   path,
 });
-void workflowRuntime.start().catch((error) => {
+const workflowsReady = workflowRuntime.start();
+const flowRuntime = createFlowRuntime({
+  store: createFlowStore({ fsPromises, path, dataDir: OPENCHAMBER_DATA_DIR }),
+  workflows: workflowRuntime,
+  workflowsReady,
+  agentSessions: workflowAgentSessions,
+  worktrees: scheduledWorktreeBridge,
+  generate: async (input) => (await import('./lib/small-model/index.js')).generateSmallModelText(input),
+  broadcast: (event) => broadcastOpenChamberUiEvent(event),
+  isEnabled: isWorkflowToolEnabled,
+});
+void flowRuntime.restore().catch((error) => {
   console.warn('[workflows] failed to restore runs:', error?.message ?? error);
 });
 // Reports wait for OpenCode, which answers once the event hub connects.
@@ -1998,8 +2015,6 @@ const refreshOpenCodeAfterConfigChange = (...args) => openCodeLifecycleRuntime.r
 const startHealthMonitoring = () => openCodeLifecycleRuntime.startHealthMonitoring(HEALTH_CHECK_INTERVAL);
 const triggerHealthCheck = () => openCodeLifecycleRuntime.triggerHealthCheck();
 const scheduledChatsScope = createChatsScope(OPENCHAMBER_CHATS_DIR);
-// Git routes fill this bridge after the scheduler is created.
-const scheduledWorktreeBridge = createUnregisteredScheduledWorktreeBridge();
 const scheduledTasksRuntime = createScheduledTasksRuntime({
   projectConfigRuntime,
   chatsScope: scheduledChatsScope,
@@ -2484,6 +2499,7 @@ const gracefulShutdownRuntime = createGracefulShutdownRuntime({
   mergeFollowRuntime,
   dispatchResultsRuntime,
   workflowRuntime,
+  flowRuntime,
   messageSearchRuntime,
   sessionRuntime,
   getHealthCheckInterval: () => healthCheckInterval,
@@ -2574,6 +2590,7 @@ async function main(options = {}) {
     path,
     instanceDir,
     env: process.env,
+    storageEnv: flowStorageEnv,
     agentToolRuntime,
     limitFailoverRuntime,
     readSettings: () => readSettingsFromDiskMigrated(),
@@ -3258,7 +3275,8 @@ async function main(options = {}) {
     extensionWaitsRuntime,
     routingRuntime,
     mergeFollowRuntime,
-    workflowRuntime,
+      workflowRuntime,
+      flowRuntime,
   });
   // Keeps and schedules the services the catalog asks for, after the routes their calls land on.
   void extensionServiceLifetime.reconcile();

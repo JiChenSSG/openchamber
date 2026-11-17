@@ -64,12 +64,14 @@ const BUILTIN_IMAGE_PLUGIN = '-opencode.tool.image-generate';
  * @param {() => Promise<string[]>} [dependencies.listExtensionPluginDirectories] OpenCode plugin folders of active extensions
  * @param {string} [dependencies.openchamberVersion] the running app, which the extension-writing skill pins its SDK to
  * @param {() => { action: string, resource: string, effect: string }[]} [dependencies.readPluginDenials] the plugins switched off in OpenChamber
+ * @param {{XDG_DATA_HOME: string, XDG_STATE_HOME: string, XDG_CACHE_HOME: string, OPENCODE_DB: string, OPENCODE_CONFIG_DIR?: string}} [dependencies.storageEnv] host-owned private data and shared config paths, applied above user environment
  */
 export const createManagedConfigRuntime = ({
   fsPromises,
   path,
   instanceDir,
   env = process.env,
+  storageEnv,
   agentToolRuntime = null,
   limitFailoverRuntime = null,
   readSettings,
@@ -169,7 +171,7 @@ export const createManagedConfigRuntime = ({
    * call back without a restart.
    */
   const buildManagedChildEnv = async () => {
-    const childEnv = agentToolRuntime ? agentToolRuntime.createChildEnv() : {};
+    const childEnv = { ...agentToolRuntime?.createChildEnv(), ...storageEnv };
     if (ownsConfigFile()) {
       await writeLatestConfigFile();
       return { ...childEnv, OPENCODE_CONFIG: filePath };

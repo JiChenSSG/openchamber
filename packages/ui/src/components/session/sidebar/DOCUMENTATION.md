@@ -3,6 +3,10 @@
 Sidebar code is organized by the business object it owns. Shared contracts are
 kept at this root in `types.ts` and `utils.tsx`.
 
+Pages includes the Flow task board on desktop/web while Workflows is enabled.
+It shares the main-surface lifecycle, and its Lucide mark uses the page icon's
+component option. Board state is owned by [`components/flow`](../../flow/DOCUMENTATION.md).
+
 - `shell/` owns sidebar chrome, navigation, search, confirmations, and switcher effects.
 - `list/` owns global-first session collection, directory bootstrap demand,
   layout-owned synchronization, authoritative cleanup, and nearby-session prefetch.

@@ -340,7 +340,7 @@ export const createOpenCodeEnvRuntime = (deps) => {
   };
 
   const bundledOpenCodeCliCandidates = () => {
-    const names = process.platform === 'win32' ? ['opencode.exe'] : ['opencode'];
+    const names = process.platform === 'win32' ? ['ocf.exe', 'opencode.exe'] : ['ocf', 'opencode'];
     const roots = [
       process.env.OPENCHAMBER_BUNDLED_OPENCODE_CLI_DIR,
       typeof process.resourcesPath === 'string' ? path.join(process.resourcesPath, 'opencode-cli') : null,

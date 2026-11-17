@@ -40,6 +40,7 @@ const savedWorkflowListSchema = z.object({
 });
 
 export type SavedWorkflow = z.infer<typeof savedWorkflowListSchema>['workflows'][number];
+export const DELIVERY_WORKFLOW_NAME = '@flow/delivery';
 
 /** The workflows saved in a project's .openchamber/workflows/. */
 export async function fetchSavedWorkflows(directory: string): Promise<SavedWorkflow[]> {
@@ -48,13 +49,13 @@ export async function fetchSavedWorkflows(directory: string): Promise<SavedWorkf
   return savedWorkflowListSchema.parse(await response.json()).workflows;
 }
 
-const startedSchema = z.object({ runId: z.string().min(1), sessionId: z.string().min(1) });
+const startedSchema = z.object({ runId: z.string().min(1), sessionId: z.string().min(1), directory: z.string().min(1).optional() });
 
 /**
  * Runs the project's saved workflow `name` (read from `scriptDirectory`) now in
  * `sessionId`, or in a new session in `directory` when null; answers both ids.
  */
-export async function startSavedWorkflow(input: { directory: string; scriptDirectory: string; sessionId: string | null; name: string }): Promise<z.infer<typeof startedSchema>> {
+export async function startSavedWorkflow(input: { directory: string; scriptDirectory: string; sessionId: string | null; name: string; args?: { task: string }; runInWorktree?: boolean }): Promise<z.infer<typeof startedSchema>> {
   const response = await runtimeFetch('/api/openchamber/workflows/start', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

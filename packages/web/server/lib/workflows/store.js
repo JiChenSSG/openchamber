@@ -17,6 +17,7 @@ const agentSchema = z.object({
   prompt: z.string(),
   agent: z.string().optional(),
   model: z.string().optional(),
+  skills: z.array(z.string()).optional(),
   schema: z.unknown().optional(),
   sessionId: z.string().optional(),
   // Read from the agent's session once its call settles.
@@ -49,6 +50,7 @@ const runSchema = z.object({
   phases: z.array(z.string()),
   script: z.string(),
   args: z.unknown().optional(),
+  managed: z.boolean().optional(),
   state: z.enum(RUN_STATES),
   attempt: z.number().int().nonnegative(),
   // Absent in runs saved before the limit counted across attempts.

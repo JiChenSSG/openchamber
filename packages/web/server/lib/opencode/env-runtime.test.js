@@ -136,6 +136,21 @@ const createBundledCli = () => {
 };
 
 describe('OpenCode env runtime', () => {
+  it.each(['win32', 'linux', 'darwin'])('prefers ocf while preserving bundled provenance on %s', (platform) => {
+    setPlatform(platform);
+    process.env.OPENCHAMBER_RUNTIME = 'desktop';
+    delete process.env.OPENCODE_BINARY;
+    delete process.env.OPENCHAMBER_BUNDLED_OPENCODE_CLI_DIR;
+    const official = createBundledCli();
+    const renamed = path.join(path.dirname(official), platform === 'win32' ? 'ocf.exe' : 'ocf');
+    fs.copyFileSync(official, renamed);
+    const { runtime, state } = createRuntime({});
+    expect(runtime.ensureOpencodeCliEnv()).toBe(renamed);
+    expect(runtime.isBundledOpenCodeCliPath(renamed)).toBe(true);
+    expect(state.resolvedOpencodeBinarySource).toBe('bundled');
+    expect(process.env.OPENCODE_BINARY).toBeUndefined();
+  });
+
   it.each(['linux', 'darwin', 'win32'])('keeps automatic desktop bundled resolution local across relaunch on %s', (platform) => {
     setPlatform(platform);
     process.env.OPENCHAMBER_RUNTIME = 'desktop';

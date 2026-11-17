@@ -3,6 +3,12 @@ import test from 'node:test';
 
 import { assertUpdaterCapability } from './updater-capability.mjs';
 
+test('refuses official updates for manual-only builds on every platform', () => {
+  for (const platform of ['win32', 'darwin', 'linux']) {
+    assert.throws(() => assertUpdaterCapability({ platform, packaged: true, manualOnly: true }), /manual updates/);
+  }
+});
+
 test('preserves updater behavior outside packaged Linux', () => {
   assert.doesNotThrow(() => assertUpdaterCapability({ platform: 'darwin', packaged: true }));
   assert.doesNotThrow(() => assertUpdaterCapability({ platform: 'win32', packaged: true }));
@@ -12,7 +18,7 @@ test('preserves updater behavior outside packaged Linux', () => {
 test('rejects packaged Linux execution outside an AppImage or an installed package', () => {
   assert.throws(
     () => assertUpdaterCapability({ platform: 'linux', packaged: true, appImagePath: '', packageType: '' }),
-    /Start OpenChamber from its \.AppImage file or install a package/,
+    /Start openflow from its \.AppImage file or install a package/,
   );
   assert.throws(
     () => assertUpdaterCapability({ platform: 'linux', packaged: true, appImagePath: '', packageType: 'pacman' }),

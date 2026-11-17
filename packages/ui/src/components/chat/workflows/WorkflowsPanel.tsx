@@ -15,7 +15,7 @@ import { useI18n } from '@/lib/i18n';
 import { getCurrentIntlLocale } from '@/lib/i18n/intl';
 import type { I18nKey } from '@/lib/i18n/messages/en';
 import { cn } from '@/lib/utils';
-import { deleteWorkflowRun, fetchWorkflowRunDetail, startSavedWorkflow, type SavedWorkflow } from '@/lib/workflows/api';
+import { DELIVERY_WORKFLOW_NAME, deleteWorkflowRun, fetchWorkflowRunDetail, startSavedWorkflow, type SavedWorkflow } from '@/lib/workflows/api';
 import type { WorkflowRun, WorkflowRunDetail } from '@/lib/workflows/model';
 import { useWorkflowPanelStore } from '@/lib/workflows/panel';
 import { useWorkflowProjectScope } from '@/lib/workflows/project';
@@ -28,6 +28,11 @@ import { ButtonTooltip } from '@/components/ui/action-toolbar';
 import { WorkflowAnswerBlock } from './WorkflowAnswerBlock';
 import { useWorkflowRunAction, workflowRunLook } from './workflowRunPresentation';
 import { ScrollableOverlay } from '@/components/ui/ScrollableOverlay';
+import { DeliveryWorkflowDialog } from './DeliveryWorkflowDialog';
+import { refreshProjectWorktrees } from '@/lib/worktrees/worktreeManager';
+import { useProjectsStore } from '@/stores/useProjectsStore';
+import { getRuntimeKey, subscribeRuntimeEndpointChanged } from '@/lib/runtime-switch';
+import { normalizeProjectPath } from '@/lib/projectResolution';
 
 type View = 'agents' | 'log' | 'result' | 'script';
 
@@ -327,9 +332,14 @@ const RunPicker: React.FC<{
 const useRunSavedWorkflow = (directory: string | null, scriptDirectory: string | null, sessionId: string | null, selectionKey: string) => {
   const { t } = useI18n();
   const { confirm, dialog } = useConfirmDialog();
+  const [deliveryOpen, setDeliveryOpen] = React.useState(false);
   const select = useWorkflowPanelStore((state) => state.select);
   const run = React.useCallback(async (name: string) => {
     if (!directory || !scriptDirectory) return;
+    if (name === DELIVERY_WORKFLOW_NAME) {
+      setDeliveryOpen(true);
+      return;
+    }
     const confirmed = await confirm({
       title: t('workflows.panel.saved.confirmTitle', { name }),
       message: sessionId ? t('workflows.panel.saved.confirmHere') : t('workflows.panel.saved.confirmNew'),
@@ -348,7 +358,30 @@ const useRunSavedWorkflow = (directory: string | null, scriptDirectory: string |
       toast.error(t('workflows.panel.saved.failed'), { description: error instanceof Error ? error.message : undefined });
     }
   }, [confirm, directory, scriptDirectory, select, selectionKey, sessionId, t]);
-  return { run, dialog };
+  const startDelivery = async (task: string, runInWorktree: boolean) => {
+    if (!directory || !scriptDirectory) return;
+    const runtime = getRuntimeKey();
+    let retired = false;
+    const unsubscribe = subscribeRuntimeEndpointChanged(() => { retired = true; setDeliveryOpen(false); });
+    try {
+      const started = await startSavedWorkflow({ directory, scriptDirectory, sessionId: null, name: DELIVERY_WORKFLOW_NAME, args: { task }, runInWorktree });
+      if (retired || runtime !== getRuntimeKey()) return;
+      setDeliveryOpen(false);
+      const project = useProjectsStore.getState().projects.find((entry) => normalizeProjectPath(entry.path) === normalizeProjectPath(scriptDirectory));
+      if (runInWorktree && project) {
+        try { await refreshProjectWorktrees(project); } catch (error) {
+          if (!retired && runtime === getRuntimeKey()) toast.error(t('workflows.flow.refreshFailed'), { description: error instanceof Error ? error.message : undefined });
+        }
+      }
+      if (retired || runtime !== getRuntimeKey()) return;
+      select(started.sessionId, started.runId);
+      if (useSessionUIStore.getState().currentSessionId !== sessionId) return;
+      useSessionUIStore.getState().setCurrentSession(started.sessionId, started.directory ?? directory);
+    } catch (error) {
+      if (!retired && runtime === getRuntimeKey()) toast.error(t('workflows.panel.saved.failed'), { description: error instanceof Error ? error.message : undefined });
+    } finally { unsubscribe(); }
+  };
+  return { run, dialog: <>{dialog}{deliveryOpen ? <DeliveryWorkflowDialog open onOpenChange={setDeliveryOpen} onStart={startDelivery} /> : null}</> };
 };
 
 /** No runs yet: the project's saved workflows, each one click from running. */
@@ -364,7 +397,7 @@ const EmptyState: React.FC<{ saved: SavedWorkflow[]; onRunSaved: (name: string) 
       {saved.map((workflow) => (
         <div key={workflow.name} className="flex min-w-0 items-center gap-2">
           <div className="min-w-0 flex-1">
-            <div className="truncate typography-meta text-foreground" dir="auto">{workflow.name}</div>
+            <div className="truncate typography-meta text-foreground" dir="auto">{workflow.name === DELIVERY_WORKFLOW_NAME ? t('workflows.flow.title') : workflow.name}</div>
             {workflow.description || workflow.error ? (
               <div className="truncate typography-micro text-muted-foreground" dir="auto" title={workflow.error ?? workflow.description}>{workflow.error ?? workflow.description}</div>
             ) : null}

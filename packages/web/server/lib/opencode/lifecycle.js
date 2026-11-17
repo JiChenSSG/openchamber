@@ -765,18 +765,6 @@ export const createOpenCodeLifecycleRuntime = (deps) => {
     // sets for OpenCode.
     const inheritedEnv = overlayEnvironment({ ...shellEnv, ...process.env, PATH: envPath }, getUserEnvironment());
 
-    // Re-arm OpenCode's own V1 -> V2 session import for sessions a bundled
-    // OpenCode 1.x created after the migration already completed. Only for the
-    // managed process, only while it is not running, and never fatal.
-    try {
-      const topUp = topUpV1SessionMigration({ env: inheritedEnv });
-      if (topUp && topUp.status !== 'skipped') {
-        console.log('[OpenCode] V1 session migration top-up:', topUp);
-      }
-    } catch (error) {
-      console.warn('[OpenCode] V1 session migration top-up failed:', error instanceof Error ? error.message : error);
-    }
-
     // What OpenChamber sets for OpenCode is recorded as injected, so a shell
     // the agent opens can tell it from the user's own variables.
     const processEnv = stripAppImageLauncherEnv(stripAppImageArgv0Leak(applyProviderEnvAliases(assignInjectedEnv(
@@ -791,6 +779,15 @@ export const createOpenCodeLifecycleRuntime = (deps) => {
         OPENCODE_SERVER_PASSWORD: openCodePassword,
       },
     ))));
+    // Migration and the child must use the same final, host-owned storage scope.
+    try {
+      const topUp = topUpV1SessionMigration({ env: processEnv });
+      if (topUp && topUp.status !== 'skipped') {
+        console.log('[OpenCode] V1 session migration top-up:', topUp);
+      }
+    } catch (error) {
+      console.warn('[OpenCode] V1 session migration top-up failed:', error instanceof Error ? error.message : error);
+    }
     managedProcessEnv = processEnv;
 
     let serverInstance;

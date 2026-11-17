@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { z } from 'zod';
 
 import { asNonEmptyString, isPlainObject, isString } from '../shared/guards.js';
 import { createMessageId, escapeAttribute } from '../dispatch-results/runtime.js';
@@ -10,6 +11,7 @@ import { readWorkflowProcessStart } from './process-owner.js';
 import { runWorkflowSandbox } from './sandbox.js';
 import { WorkflowScriptError, parseWorkflowScript, plannedPhases } from './script.js';
 import { isWorkflowRunId } from './store.js';
+import { DELIVERY_WORKFLOW_NAME, DELIVERY_WORKFLOW_SCRIPT, deliveryArgsSchema } from './delivery.js';
 
 // How many agents of one run work at once, and how many one run may start in
 // all. A script with a loop must not be able to spend a subscription in a
@@ -64,6 +66,7 @@ const createLimiter = (limit) => {
   return { acquire };
 };
 
+const skillsSchema = z.array(z.string().max(256).trim().min(1)).max(20);
 const readAgentOptions = (raw) => {
   const source = isPlainObject(raw) ? raw : {};
   const label = asNonEmptyString(source.label);
@@ -74,6 +77,13 @@ const readAgentOptions = (raw) => {
   if (label) options.label = label.trim().slice(0, 120);
   if (agent) options.agent = agent.trim();
   if (model) options.model = model.trim();
+  if (Array.isArray(source.skills)) {
+    const skills = skillsSchema.safeParse(source.skills);
+    if (!skills.success) {
+      throw new OpenChamberControlError('skills must contain at most 20 nonempty skill identifiers', 400);
+    }
+    options.skills = [...new Set(skills.data)];
+  }
   if (isPlainObject(source.schema)) options.schema = source.schema;
   return options;
 };
@@ -180,6 +190,7 @@ const isPidAlive = (pid) => {
 export const createWorkflowRuntime = ({
   store,
   agentSessions,
+  worktrees,
   postSynthetic,
   broadcast = () => {},
   isEnabled = async () => true,
@@ -319,6 +330,7 @@ export const createWorkflowRuntime = ({
    * is left alone, so a retry never sends a stale report or marks a new one.
    */
   const deliverReport = async (run) => {
+    if (run.managed) return;
     const report = run.report;
     if (!report || report.delivered || uncommittedReports.has(report)) return;
     const message = {
@@ -400,6 +412,7 @@ export const createWorkflowRuntime = ({
       // Saved as JSON, which leaves out the options not given.
       agent: options.agent,
       model: options.model,
+      skills: options.skills,
       schema: options.schema,
       state: 'queued',
     };
@@ -446,6 +459,7 @@ export const createWorkflowRuntime = ({
         title: label,
         agent: options.agent,
         model: options.model,
+        skills: options.skills,
         allowTools: slot ? [WORKFLOW_ANSWER_TOOL] : [],
         text,
         signal,
@@ -654,7 +668,7 @@ export const createWorkflowRuntime = ({
       active.delete(run.id);
       throw error;
     }
-    void execute(run, execution, body).catch((error) => {
+    execution.finished = execute(run, execution, body).catch((error) => {
       console.warn(`[workflows] run ${run.id} ended with an internal error:`, error?.message ?? error);
     });
   };
@@ -715,9 +729,10 @@ export const createWorkflowRuntime = ({
     };
   };
 
-  const approve = async ({ runId }) => {
+  const approve = async ({ runId }, { managed = false } = {}) => {
     await assertEnabled();
     const run = await requireRun(runId);
+    if (run.managed && !managed) throw new OpenChamberControlError('Flow owns this node; resume the requirement from its task board', 403);
     if (run.state !== 'awaiting-approval') throw new OpenChamberControlError(`The run is ${run.state}, not waiting for approval`, 409);
     await startInBackground(run);
     return { runId: run.id, state: 'running' };
@@ -744,9 +759,10 @@ export const createWorkflowRuntime = ({
     return { runId: run.id, state: 'stopping' };
   };
 
-  const resume = async ({ runId }, { sessionId } = {}) => {
+  const resume = async ({ runId }, { sessionId, managed = false } = {}) => {
     await assertEnabled();
     const run = await requireRun(runId, sessionId);
+    if (run.managed && !managed) throw new OpenChamberControlError('Flow owns this node; resume the requirement from its task board', 403);
     if (active.has(run.id) || run.state === 'running') throw new OpenChamberControlError('The run is already running', 409);
     if (run.state !== 'failed' && run.state !== 'stopped') {
       throw new OpenChamberControlError(`The run is ${run.state}; only a failed or stopped run resumes. Propose a new one with workflow.run`, 409);
@@ -765,6 +781,7 @@ export const createWorkflowRuntime = ({
    */
   const remove = async ({ runId }) => {
     const run = await requireRun(runId);
+    if (run.managed) throw new OpenChamberControlError('Flow retains this node for task recovery', 409);
     // The run's state is the rule ("stop or decline first"), not the active
     // set: an execution leaves `active` only once its end save resolves
     // (execute's finally), so for a moment after the end is saved the run is
@@ -841,14 +858,75 @@ export const createWorkflowRuntime = ({
    * since the click is the approval. Like a run its agent proposed, its report
    * comes back into that session and wakes it.
    */
-  const startSaved = async ({ directory, scriptDirectory, sessionId, name, args }) => {
+  const startSaved = async ({ directory, scriptDirectory, sessionId, name, args, runInWorktree = true }) => {
     await assertEnabled();
     if (!directory) throw new OpenChamberControlError('directory is required', 400);
     if (!asNonEmptyString(name)) throw new OpenChamberControlError('name is required: a saved workflow', 400);
+    if (name === DELIVERY_WORKFLOW_NAME) {
+      const parsed = deliveryArgsSchema.safeParse(args);
+      if (!parsed.success) throw new OpenChamberControlError('A task and a review limit between 1 and 10 are required', 400);
+      let workspace = directory;
+      if (runInWorktree) {
+        if (!(worktrees?.create instanceof Function) || !(worktrees?.isGitRepository instanceof Function)) throw new OpenChamberControlError('Worktree creation is unavailable', 501);
+        const projectDirectory = scriptDirectory ?? directory;
+        if (!await worktrees.isGitRepository(projectDirectory)) throw new OpenChamberControlError('A new worktree requires a Git repository. Choose a Git project or turn off the new-worktree option.', 400);
+        const created = await worktrees.create({ projectDirectory });
+        if (!asNonEmptyString(created?.directory)) throw new OpenChamberControlError('Worktree creation returned no directory', 500);
+        workspace = created.directory;
+      }
+      // A delivery run owns a fresh session; an existing chat may still be working.
+      try {
+        const owner = await agentSessions.createSession({ directory: workspace, title: `Flow: ${parsed.data.task.slice(0, 100)}` });
+        const proposed = await propose({ script: DELIVERY_WORKFLOW_SCRIPT, args: { ...parsed.data, workspace } }, { sessionId: owner, directory: workspace });
+        await approve({ runId: proposed.runId });
+        return { runId: proposed.runId, sessionId: owner, directory: workspace };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        throw new OpenChamberControlError(`${message}. Workspace retained at ${workspace}`, error instanceof OpenChamberControlError ? error.statusCode : 500);
+      }
+    }
     const owner = asNonEmptyString(sessionId) ?? await agentSessions.createSession({ directory, title: name });
     const proposed = await propose({ name, args }, { sessionId: owner, directory, scriptDirectory: scriptDirectory ?? directory });
     await approve({ runId: proposed.runId });
     return { runId: proposed.runId, sessionId: owner };
+  };
+
+  /** Server-owned Flow nodes reuse the workflow engine without waking an owner agent. */
+  const runStep = async ({ runId, directory, sessionId, prompt, options, signal, onRun, onStart }) => {
+    let run;
+    if (runId) {
+      run = await requireRun(runId);
+      if (!run.managed || run.directory !== directory || run.parentSessionId !== sessionId) {
+        throw new OpenChamberControlError('The node does not belong to this requirement', 409);
+      }
+    } else {
+      const proposed = await propose({
+        script: `export const meta = {name: 'flow-node', description: 'Flow task node'}; return await agent(args.prompt, args.options);`,
+        args: { prompt, options },
+      }, { sessionId, directory });
+      run = await requireRun(proposed.runId);
+      run.managed = true;
+      await persist(run, { immediate: true });
+      await onRun(run.id);
+    }
+    if (signal.aborted) throw new WorkflowAgentStopped();
+    if (['awaiting-approval', 'stopped', 'failed'].includes(run.state)) {
+      await onStart?.();
+      if (signal.aborted) throw new WorkflowAgentStopped();
+      if (run.state === 'awaiting-approval') await approve({ runId: run.id }, { managed: true });
+      else await resume({ runId: run.id }, { managed: true });
+    }
+    const abort = () => { void stop({ runId: run.id }).catch(() => {}); };
+    signal.addEventListener('abort', abort, { once: true });
+    try {
+      if (signal.aborted) abort();
+      await active.get(run.id)?.finished;
+      if (signal.aborted) throw new WorkflowAgentStopped();
+      if (run.state !== 'completed') throw new OpenChamberControlError(run.error ?? 'The node did not complete', 409);
+      return { runId: run.id, result: run.result };
+    } finally {
+      signal.removeEventListener('abort', abort);
+    }
   };
 
   /** Saves a script as a command-like workflow of the project, under .openchamber/workflows/. */
@@ -883,6 +961,7 @@ export const createWorkflowRuntime = ({
         workflows.push({ name: file.slice(0, -3), error: error instanceof Error ? error.message : String(error) });
       }
     }
+    if (await isEnabled()) workflows.unshift({ name: DELIVERY_WORKFLOW_NAME });
     return { workflows };
   };
 
@@ -967,11 +1046,13 @@ export const createWorkflowRuntime = ({
       case 'workflow.answer': return answer(input, scope);
       case 'workflow.list': {
         await assertEnabled();
-        return { ...(await listSaved(scope)), runs: (await list(scope)).map(({ id, name, state, createdAt }) => ({ runId: id, name, state, createdAt })) };
+        // The built-in starts through the user's form, which approves isolation.
+        const saved = await listSaved(scope);
+        return { workflows: saved.workflows.filter((workflow) => workflow.name !== DELIVERY_WORKFLOW_NAME), runs: (await list(scope)).map(({ id, name, state, createdAt }) => ({ runId: id, name, state, createdAt })) };
       }
       default: throw new OpenChamberControlError(`Unsupported workflow action: ${action}`, 400);
     }
   };
 
-  return { executeAction, approve, decline, stop, resume, remove, list, listByDirectory, listSaved, startSaved, detail, agentDetail, start, deliverPending, shutdown };
+  return { executeAction, approve, decline, stop, resume, remove, list, listByDirectory, listSaved, startSaved, runStep, detail, agentDetail, start, deliverPending, shutdown };
 };

@@ -160,6 +160,7 @@ const {
   createWorktree,
   getLatestWorktreeMetadata,
   listProjectWorktrees,
+  refreshProjectWorktrees,
   partitionWorktreesByRegisteredProject,
   preserveClientTrackedWorktreeStatus,
   replaceRepositoryWorktrees,
@@ -198,6 +199,21 @@ describe('worktreeManager list invalidation', () => {
     sessionState.availableWorktrees = [];
     sessionState.worktreeMetadata = new Map();
     attachmentState.attachments = new Map();
+  });
+
+  test('refreshes a registered worktree project without duplicate aliases or stale flat entries', async () => {
+    const project = { id: 'flow-refresh-project', path: '/flow-linked' };
+    rootImplementation = async (directory) => directory === '/other-flow' ? directory : '/repo-common';
+    listImplementation = async (directory) => [{ path: directory === '/other-flow' ? '/other-worktree' : '/old-worktree', branch: 'old', name: 'old' }];
+    const old = await listProjectWorktrees(project);
+    const other = await listProjectWorktrees({ id: 'other-flow', path: '/other-flow' });
+    sessionState.availableWorktreesByProject = new Map([['/flow-linked/', old], ['/other-flow', other]]);
+    sessionState.availableWorktrees = [...old, ...other];
+    listImplementation = async () => [{ path: '/new-worktree', branch: 'new', name: 'new' }];
+    await refreshProjectWorktrees(project);
+    expect([...sessionState.availableWorktreesByProject.keys()].sort()).toEqual(['/flow-linked', '/other-flow']);
+    expect(sessionState.availableWorktrees.map((worktree) => worktree.path).sort()).toEqual(['/new-worktree', '/other-worktree']);
+    expect(sessionState.availableWorktreesByProject.get('/other-flow')).toBe(other);
   });
 
   test('warns when worktree creation falls back after a source fetch failure', async () => {

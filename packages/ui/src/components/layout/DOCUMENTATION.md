@@ -3,6 +3,11 @@
 This file covers the header's session tabs. The tab store, its scopes and
 seeding are owned by `stores/DOCUMENTATION.md` (`useSessionTabsStore`).
 
+The desktop/web header exposes the Flow task board while Workflows is enabled.
+It is a mutually exclusive main-area page and hides session tabs like other
+pages. Its data and node controls are owned by
+[`components/flow`](../flow/DOCUMENTATION.md).
+
 ## Header session tabs
 
 `SessionTabsStrip.tsx` is the header's horizontal working set of sessions, in

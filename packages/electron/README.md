@@ -1,8 +1,30 @@
-# OpenChamber Desktop
+# openflow desktop
 
-Electron desktop runtime for OpenChamber on macOS, Windows, and Linux.
+Electron desktop runtime for openflow, based on OpenChamber, on macOS, Windows, and Linux.
 
 This package owns the native shell: windows, menus, deep links, native notifications, auto-updates, host switching, SSH connections, tunnel helpers, and packaged desktop builds. The web UI and OpenChamber server logic still live in `packages/web` and shared React UI lives in `packages/ui`.
+
+## Product identity and compatibility
+
+The product and desktop executable are `openflow`; the bundled, unmodified
+OpenCode is `ocf.exe` on Windows and `ocf` elsewhere. Release metadata targets
+`JiChenSSG/openchamber`. Updates are manual and the app never registers itself
+as the official `openchamber://` handler.
+
+The bundle ID stays `dev.openchamber.flow`. Backend storage stays under
+`~/.config/openchamber-flow`; Chromium uses `OpenChamber Flow` or, in development,
+`OpenChamber Flow Dev`. The explicit desktop profile override still wins.
+These names preserve existing state and OS integration across display-name
+changes. Package namespaces, IPC, URL schemes and client pairing contracts keep
+their existing names. No original OpenChamber data is migrated or modified.
+
+| Surface | Identity behavior |
+| --- | --- |
+| Web | openflow window-title and PWA defaults; explicit custom PWA names stay |
+| Electron | openflow product, executable and menus; retained private profiles |
+| VS Code | Existing extension identity; shared document titles use openflow |
+| Hosted mobile | Browser/PWA defaults use openflow; pairing is unchanged |
+| Capacitor mobile | Native app identity unchanged; existing server contracts work |
 
 ## How It Runs
 
@@ -358,13 +380,15 @@ macOS packaging needs Xcode/build tools for notarized builds and icon asset comp
 
 Windows packaging needs NSIS support through `electron-builder`. If no Windows signing env is set, `package.mjs` disables code signing and builds an unsigned installer. `build.nsis.include` adds `resources/installer.nsh`, which declares the installer and uninstaller DPI-aware; without it Windows scales their windows as a bitmap and they look blurred at a display scale above 100% (#5010). Windows updates use `latest.yml` for x64 and the `latest-arm64.yml` channel for ARM64 so each installation resolves an architecture-matching installer.
 
-Linux packages must be built natively. Set `OPENCHAMBER_TARGET_ARCH=x64` or `OPENCHAMBER_TARGET_ARCH=arm64` when packaging; the build rejects a target that does not match the Linux host. The same target selects the bundled OpenCode CLI, native Electron rebuild, and Electron Builder architecture. Linux identity is stable across architectures: executable `openchamber`, desktop file `openchamber.desktop`, icon `openchamber`, and `StartupWMClass=openchamber`.
+Rebuilding `node-pty` on Windows also requires the Visual Studio C++ Spectre-mitigated libraries. The Flow preview can use an existing vendor build only when its module version, architecture and Electron ABI match and a native terminal smoke passes. Preview packaging is unsigned; it preserves ASAR integrity and applies Flow executable metadata with the resource editor separately.
 
-The Linux icon is the 512×512 `resources/icons/app-icon.png`, which the AppImage carries at `usr/share/icons/hicolor/512x512/apps/openchamber.png`. Keep it a PNG of at most 512×512: electron-builder's default AppImage path puts an SVG at `hicolor/scalable/` without the `apps/` directory, and the hicolor theme declares no size above 512, so in both cases launchers cannot resolve `Icon=openchamber` (#4766, #2934).
+Linux packages must be built natively. Set `OPENCHAMBER_TARGET_ARCH=x64` or `OPENCHAMBER_TARGET_ARCH=arm64` when packaging; the build rejects a target that does not match the Linux host. The same target selects the bundled OpenCode CLI, native Electron rebuild, and Electron Builder architecture. Linux identity is stable across architectures: executable `openflow`, desktop file `openflow.desktop`, icon `openflow`, and `StartupWMClass=openflow`.
 
-GNOME 46+ shows a window's icon only through a `.desktop` file that matches its app id (`openchamber`); a window without one gets the generic executable icon on Wayland and XWayland alike. So a packaged AppImage started directly, with no integration tool, writes its own launcher entry at startup (`linux-desktop-entry.mjs`): `$XDG_DATA_HOME/applications/openchamber.desktop`, marked `X-OpenChamber-Managed=true`, with the image's 512×512 icon copied to `$XDG_DATA_HOME/icons/hicolor/512x512/apps/openchamber.png`. Each start rewrites `Exec` and `TryExec` if the AppImage moved; `TryExec` hides the entry once the file is deleted. The app never touches an entry without that marker, and it withdraws its own once another integration exists: a launch with `DESKTOPINTEGRATION` set (Gear Lever), or another entry in `$XDG_DATA_HOME/applications`, where those tools write theirs, that is named `openchamber.desktop`, claims `StartupWMClass=openchamber`, or starts this AppImage. An entry the user hid with a menu editor (`NoDisplay=true` or `Hidden=true`) is left as it is. GNOME re-matches open windows when the entry appears, so the first launch gets its icon a few seconds after start. The `.deb` and `.rpm` install their own `openchamber.desktop` under `/usr/share/applications`, which a user entry of the same name would hide. So while a system data directory holds `openchamber.desktop`, a packaged start that is not an AppImage removes the marked user entry and an AppImage start writes none. An extracted AppImage, which also runs without `APPIMAGE`, leaves the entry alone when no package is installed.
+The Linux icon is the 512×512 `resources/icons/app-icon.png`, which the AppImage carries at `usr/share/icons/hicolor/512x512/apps/openflow.png`. Keep it a PNG of at most 512×512: electron-builder's default AppImage path puts an SVG at `hicolor/scalable/` without the `apps/` directory, and the hicolor theme declares no size above 512, so in both cases launchers cannot resolve `Icon=openflow` (#4766, #2934).
 
-The `.deb` and `.rpm` install to `/opt/OpenChamber` and use their own `resources/linux/after-install.tpl` and `after-remove.tpl`: electron-builder's scripts minus the `/usr/bin/openchamber` link, because `openchamber` on `PATH` is the CLI of `@openchamber/web` and the link would replace it. The menu entry starts `/opt/OpenChamber/openchamber`. The package `Maintainer` and `Homepage` come from `linux.maintainer` and `homepage` in `package.json`; `fpm` refuses to build a `.deb` without them.
+GNOME 46+ shows a window's icon only through a `.desktop` file that matches its app id (`openflow`); a window without one gets the generic executable icon on Wayland and XWayland alike. So a packaged AppImage started directly, with no integration tool, writes its own launcher entry at startup (`linux-desktop-entry.mjs`): `$XDG_DATA_HOME/applications/openflow.desktop`, marked `X-OpenChamber-Managed=true`, with the image's 512×512 icon copied to `$XDG_DATA_HOME/icons/hicolor/512x512/apps/openflow.png`. Each start rewrites `Exec` and `TryExec` if the AppImage moved; `TryExec` hides the entry once the file is deleted. The app never touches an entry without that marker, and it withdraws its own once another integration exists: a launch with `DESKTOPINTEGRATION` set (Gear Lever), or another entry in `$XDG_DATA_HOME/applications`, where those tools write theirs, that is named `openflow.desktop`, claims `StartupWMClass=openflow`, or starts this AppImage. An entry the user hid with a menu editor (`NoDisplay=true` or `Hidden=true`) is left as it is. GNOME re-matches open windows when the entry appears, so the first launch gets its icon a few seconds after start. The `.deb` and `.rpm` install their own `openflow.desktop` under `/usr/share/applications`, which a user entry of the same name would hide. So while a system data directory holds `openflow.desktop`, a packaged start that is not an AppImage removes the marked user entry and an AppImage start writes none. An extracted AppImage, which also runs without `APPIMAGE`, leaves the entry alone when no package is installed.
+
+The `.deb` and `.rpm` install to `/opt/openflow` and use their own `resources/linux/after-install.tpl` and `after-remove.tpl`, which keep the desktop executable off `PATH`. The menu entry starts `/opt/openflow/openflow`; the existing `openchamber` CLI from `@openchamber/web` remains untouched. The package `Maintainer` and `Homepage` come from `linux.maintainer` and `homepage` in `package.json`; `fpm` refuses to build a `.deb` without them.
 
 After packaging, run `bun run --cwd packages/electron verify:linux-appimage`. The verifier extracts the final AppImage and checks its ELF architecture, desktop identity, theme icon and `.DirIcon`, Electron executable, pinned OpenCode CLI version and architecture, and all packaged native `.node` modules.
 
@@ -580,7 +604,7 @@ Add new native capabilities in this order:
 
 ## Update channels and Canary
 
-The desktop app updates from one of two channels, chosen under Settings → About → Updates and stored as `desktopUpdateChannel` in `settings.json`:
+openflow refuses automatic update checks and downloads. The upstream channel machinery remains in the source for reference; its two channels are stored as `desktopUpdateChannel` in `settings.json`:
 
 - **Stable**: the latest full release, read from its mirror on Cloudflare R2 (`https://downloads.openchamber.dev/desktop/stable/`, the `generic` provider), with the GitHub release as the fallback (the `github` provider). `release.yml`'s `finalize-release` copies the draft's desktop files and `latest*.yml` manifests there with `scripts/release-mirror/mirror-to-r2.mjs` before anything announces the release: publishing it, the Discord post and the website rebuild wait for the upload, and a failed upload leaves the release a draft (`.github/workflows/mirror-release.yml` mirrors a published release again by hand). The script uploads files first and manifests last, keeps the previous release whole (the website links its files until it is rebuilt) and deletes older releases' files except their `.blockmap`s, which a Windows update reads to download only the changed blocks. A check or download that fails on the mirror sends checks to GitHub for an hour (`pickUpdaterSource`, `updater-feed.mjs`); a missing manifest on the mirror counts as a failure there, while on GitHub it still means "no release for this platform yet".
 - **Canary**: the nightly build of `main`. `.github/workflows/canary.yml` builds it when `main` moved, mirrors the night to `https://downloads.openchamber.dev/desktop/canary/` with the same script (`--channel canary`; blockmaps stay for the nights `canary-notes.json` covers), then replaces the files of one pre-release tagged `canary`. The app reads the mirror first and that pre-release's manifests as the fallback (the `generic` provider on `releases/download/canary/`), with the same one-hour switch as Stable. Stable never sees them, because the GitHub provider reads only the latest full release.
@@ -607,9 +631,9 @@ The download link stays the same, the releases page does not fill up with nightl
 
 ## Logs And Data
 
-Electron uses `electron-log`. In development, console logs are also visible in the terminal. In packaged apps, logs are written through the platform log path for the `OpenChamber` app name.
+Electron uses `electron-log`. In development, console logs are also visible in the terminal. Packaged logs use the platform log path for the `openflow` app name.
 
-Development builds use a separate user data directory named `OpenChamber Dev`, so dev state does not overwrite normal packaged app state.
+Development and packaged profiles remain separate as described in Product identity and compatibility.
 
 ## Things To Be Careful With
 

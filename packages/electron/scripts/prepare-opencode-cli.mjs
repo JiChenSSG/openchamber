@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { resolveTargetArchitecture } from './target-architecture.mjs';
 import { readPinnedOpenCodeCliVersion, runOpenCodeCliVersion } from './opencode-cli-version.mjs';
 import { readPeArchitecture } from './windows-executable.mjs';
+import { bundledOpenCodeCliName } from './bundled-opencode-name.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const electronRoot = path.resolve(__dirname, '..');
@@ -117,7 +118,7 @@ const main = async () => {
 
   const targetArchitecture = resolveTargetArchitecture();
   const artifact = artifactForPlatform(process.platform, targetArchitecture);
-  const outputBinary = outputBinaryPath(artifact.binary);
+  const outputBinary = outputBinaryPath(bundledOpenCodeCliName());
   // A Windows build for another architecture is not run here: an x64 runner
   // cannot start an arm64 executable, so the package manifest vouches for the version.
   const runsOnHost = !(process.platform === 'win32' && targetArchitecture.node !== process.arch);

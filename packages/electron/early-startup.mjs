@@ -31,10 +31,19 @@ import { clearAppImageArgv0FromProcessEnv } from '@openchamber/web/server/lib/in
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const isDev = process.env.OPENCHAMBER_ELECTRON_DEV === '1' || !app.isPackaged;
 
+/**
+ * Display-name changes must not reset Chromium storage or saved connections.
+ * @param {{ appDataDir: string, development: boolean, override?: string }} options
+ */
+export const resolveDesktopUserDataPath = ({ appDataDir, development, override }) => {
+  const explicit = override?.trim() ?? '';
+  return explicit || path.join(appDataDir, development ? 'OpenChamber Flow Dev' : 'OpenChamber Flow');
+};
+
 export const DEEP_LINK_PROTOCOL = 'openchamber';
 export const UI_PROTOCOL = 'openchamber-ui';
-const PACKAGED_APP_USER_MODEL_ID = 'dev.openchamber.desktop';
-const DEV_APP_USER_MODEL_ID = 'dev.openchamber.desktop.dev';
+const PACKAGED_APP_USER_MODEL_ID = 'dev.openchamber.flow';
+const DEV_APP_USER_MODEL_ID = 'dev.openchamber.flow.dev';
 export const APP_USER_MODEL_ID = app.isPackaged ? PACKAGED_APP_USER_MODEL_ID : DEV_APP_USER_MODEL_ID;
 export const BACKGROUND_START_ARG = '--background';
 
@@ -101,7 +110,7 @@ export const settingsFilePath = () => {
   if (typeof process.env.OPENCHAMBER_DATA_DIR === 'string' && process.env.OPENCHAMBER_DATA_DIR.trim()) {
     return path.join(process.env.OPENCHAMBER_DATA_DIR.trim(), 'settings.json');
   }
-  return path.join(os.homedir(), '.config', 'openchamber', 'settings.json');
+  return path.join(os.homedir(), '.config', 'openchamber-flow', 'settings.json');
 };
 
 const readJsonFile = (filePath) => {
@@ -394,7 +403,7 @@ export const usesFramelessChrome = () => (
 export const buildMainWindowOptions = ({ bounds, backgroundColor, additionalArguments }) => {
   const usesCustomTitleBar = process.platform === 'darwin' || usesFramelessChrome();
   const options = {
-    title: 'OpenChamber',
+    title: 'openflow',
     width: bounds?.width ?? DEFAULT_WINDOW_WIDTH,
     height: bounds?.height ?? DEFAULT_WINDOW_HEIGHT,
     minWidth: MIN_WINDOW_WIDTH,

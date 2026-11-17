@@ -30,12 +30,15 @@ test('builds a background autostart desktop entry', () => {
   assert.match(entry, /Type=Application/);
   assert.match(entry, /Exec="\/home\/user\/Open Chamber\.AppImage" --background/);
   assert.match(entry, /X-GNOME-Autostart-enabled=true/);
+  assert.match(entry, /^Name=openflow$/m);
+  assert.match(entry, /^StartupWMClass=openflow$/m);
 });
 
 test('writes and removes the XDG autostart file', async () => {
   const homeDir = await fs.mkdtemp(path.join(os.tmpdir(), 'openchamber-autostart-'));
   const env = { XDG_CONFIG_HOME: path.join(homeDir, 'config') };
   const filePath = resolveLinuxAutostartFilePath({ env, homeDir });
+  assert.equal(path.basename(filePath), 'openflow.desktop');
 
   try {
     assert.equal(await readLinuxAutostartEnabled({ env, homeDir }), false);

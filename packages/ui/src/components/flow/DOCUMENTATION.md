@@ -1,0 +1,31 @@
+# Flow task board
+
+## Ownership
+
+The desktop and web page manages requirement and Ticket presentation, node
+configuration and user actions. `server/lib/flow` owns state, persistence,
+dependencies, routing and budgets. Shared UI calls explicit OpenChamber routes
+through `lib/flow/api.ts`; it does not call providers or privileged shell APIs.
+
+## Invariants
+
+- Requirement state and review counts come from parsed server responses.
+- Same-owner load failures retain the last successful snapshot. Runtime and
+  project changes discard the previous owner's data and reject late responses.
+- Only a visible board subscribes to change signals. No idle polling or reads
+  across every project are allowed.
+- Node pickers are controlled values. They never change the chat composer's
+  agent, model or variant selection.
+- Completion requires explicit acceptance. Dragging a card cannot skip Review.
+- Open session follows the selected Ticket's captured node link, even while a
+  different Ticket is executing. Missing legacy links fall back to the owner.
+- New requirements capture the template; editing it affects future requirements.
+
+## Decisions
+
+### Why the board is a main-area page
+
+Tasks need space for dependency and execution details. The page follows the
+existing main-surface lifecycle and leaves the chat available through Open
+session. A permanently mounted context panel would keep its subscriptions and
+catalogue reads alive while hidden.

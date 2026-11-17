@@ -49,7 +49,7 @@ export const TitlebarLeftControls: React.FC = () => {
   // the project root. A full-page surface hides the tabs, so it comes back.
   const tabsShown = useUIStore((state) => state.sessionTabsEnabled && !(
     state.isScheduledTasksDialogOpen || state.isArchivePageOpen || state.isIntegrationsCatalogOpen
-    || state.isUsageStatsPageOpen || state.isSourceBoardOpen || state.isOverviewOpen
+    || state.isUsageStatsPageOpen || state.isSourceBoardOpen || state.isFlowBoardOpen || state.isOverviewOpen
     || state.worktreesPageProjectId !== null || (state.isolatedSpacesEnabled && state.spacesPageProjectId !== null)
     || state.runOverviewKey !== null || state.openGuestPageId !== null
   ));

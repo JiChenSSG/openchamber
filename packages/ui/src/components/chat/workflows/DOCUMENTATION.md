@@ -1,5 +1,10 @@
 # Workflow cards and panel
 
+The panel lists the built-in delivery workflow with project-saved workflows.
+Its start form captures the task and defaults to a new worktree. The server
+owns stage routing, review retries and release preparation. The form refreshes
+the affected project's worktree topology before opening the new owner session.
+
 ## Ownership
 
 Shared chat approval cards and the desktop/web Workflows context panel. The

@@ -10,11 +10,11 @@ import path from 'node:path';
 // GNOME re-matches open windows when the file appears, so the first launch
 // gets the icon a few seconds after this runs.
 
-const DESKTOP_FILE_NAME = 'openchamber.desktop';
-const WM_CLASS = 'openchamber';
+const DESKTOP_FILE_NAME = 'openflow.desktop';
+const WM_CLASS = 'openflow';
 const MANAGED_KEY = 'X-OpenChamber-Managed';
-const ICON_RELATIVE_PATH = path.join('icons', 'hicolor', '512x512', 'apps', 'openchamber.png');
-const APPDIR_ICON_RELATIVE_PATH = path.join('usr', 'share', 'icons', 'hicolor', '512x512', 'apps', 'openchamber.png');
+const ICON_RELATIVE_PATH = path.join('icons', 'hicolor', '512x512', 'apps', 'openflow.png');
+const APPDIR_ICON_RELATIVE_PATH = path.join('usr', 'share', 'icons', 'hicolor', '512x512', 'apps', 'openflow.png');
 
 const resolveDataHome = (env, homeDir) => {
   const value = (env.XDG_DATA_HOME ?? '').trim();
@@ -29,8 +29,8 @@ const quoteExecArgument = (value) => `"${value.replace(/(["`$\\])/g, '\\$1')}"`.
 export const buildAppImageDesktopEntry = ({ appImagePath, iconPath }) => [
   '[Desktop Entry]',
   'Type=Application',
-  'Name=OpenChamber',
-  'Comment=Desktop runtime for OpenChamber',
+  'Name=openflow',
+  'Comment=openflow automation workbench',
   `Exec=${escapeDesktopString(quoteExecArgument(appImagePath))} %U`,
   `TryExec=${escapeDesktopString(appImagePath)}`,
   `Icon=${escapeDesktopString(iconPath)}`,

@@ -304,6 +304,7 @@ type OpenChamberEvent =
   | TrackedItemsChangedEvent
   /** An agent turn finished in `directory`; its branches may have a new pull request. */
   | { type: 'source-control-activity'; directory: string }
+  | { type: 'flow-updated'; directory: string; id: string; revision: number }
   | RoutingUpdatedEvent
   | RoutingDecisionEvent
   | RoutingPermissionHeldEvent
@@ -510,6 +511,11 @@ const getEventProperties = (properties: unknown): Record<string, unknown> | null
 const guestServiceEventSchema = z.object({ guestId: z.string().min(1), topic: z.string().min(1), data: z.json() });
 
 const dispatchFromEnvelope = (envelope: { type: string; properties: unknown }) => {
+  if (envelope.type === 'openchamber:flow-updated') {
+    const parsed = z.object({ directory: z.string().min(1), id: z.string().min(1), revision: z.number().int().nonnegative() }).safeParse(envelope.properties);
+    if (parsed.success) for (const listener of listeners) listener({ type: 'flow-updated', ...parsed.data });
+    return;
+  }
   if (envelope.type === 'openchamber:terminal-sessions-changed') {
     for (const listener of listeners) listener({ type: 'terminal-sessions-changed' });
     return;

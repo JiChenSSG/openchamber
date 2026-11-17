@@ -131,11 +131,12 @@ test('does not bypass other certificate failures or malformed URLs', () => {
 });
 
 test('plainChromeUserAgent drops the app and Electron tokens', () => {
-  const electronDefault = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) OpenChamber/2.1.1 Chrome/140.0.7339.41 Electron/38.1.0 Safari/537.36';
+  const electronDefault = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) openflow/2.7.1 Chrome/140.0.7339.41 Electron/45.2.1 Safari/537.36';
   assert.equal(
     plainChromeUserAgent(electronDefault),
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.7339.41 Safari/537.36',
   );
   const chrome = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36';
   assert.equal(plainChromeUserAgent(chrome), chrome);
+  assert.equal(plainChromeUserAgent(electronDefault.replace('openflow/2.7.1', 'OpenChamber/2.7.1')), plainChromeUserAgent(electronDefault));
 });

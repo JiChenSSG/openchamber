@@ -28,7 +28,7 @@ export const SidebarPageRow: React.FC<{ page: SidebarPage }> = ({ page }) => {
       )}
     >
       <span className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center text-muted-foreground">
-        <GuestIcon icon={page.icon} iconSrc={page.iconSrc ?? undefined} className="size-3.5" />
+        {'iconComponent' in page ? React.createElement(page.iconComponent, { className: 'size-3.5' }) : <GuestIcon icon={page.icon} iconSrc={page.iconSrc ?? undefined} className="size-3.5" />}
       </span>
       <span className={cn('min-w-0 flex-1 truncate typography-ui-label', page.open ? 'text-interactive-selection-foreground' : 'oc-title-rest')} dir="auto">
         {page.label}

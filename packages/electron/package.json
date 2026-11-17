@@ -2,9 +2,9 @@
   "name": "@openchamber/electron",
   "version": "2.7.1",
   "private": true,
-  "description": "Electron desktop runtime for OpenChamber",
-  "author": "OpenChamber",
-  "homepage": "https://openchamber.dev",
+  "description": "openflow desktop automation workbench, based on OpenChamber",
+  "author": "JiChenSSG",
+  "homepage": "https://github.com/JiChenSSG/openchamber",
   "type": "module",
   "main": "./dist-bundle/entry.mjs",
   "opencodeCli": {
@@ -58,8 +58,8 @@
     "lint": "node -e \"process.exit(0)\""
   },
   "build": {
-    "appId": "dev.openchamber.desktop",
-    "productName": "OpenChamber",
+    "appId": "dev.openchamber.flow",
+    "productName": "openflow",
     "asarUnpack": [
       "node_modules/7zip-bin/win/**/*",
       "node_modules/@openchamber/web/server/built-in-extensions/**/*",
@@ -140,6 +140,7 @@
       ]
     },
     "win": {
+      "executableName": "openflow",
       "icon": "resources/icons/icon.ico",
       "target": [
         "nsis"
@@ -154,18 +155,18 @@
         "rpm"
       ],
       "category": "Development",
-      "maintainer": "OpenChamber <security@openchamber.dev>",
-      "vendor": "OpenChamber",
-      "synopsis": "Desktop runtime for OpenChamber",
+      "maintainer": "JiChenSSG",
+      "vendor": "openflow",
+      "synopsis": "openflow automation workbench",
       "icon": "resources/icons/app-icon.png",
-      "executableName": "openchamber",
+      "executableName": "openflow",
       "artifactName": "${productName}-${version}-linux-${arch}.${ext}",
       "desktop": {
         "entry": {
-          "Name": "OpenChamber",
-          "Comment": "Desktop runtime for OpenChamber",
-          "Icon": "openchamber",
-          "StartupWMClass": "openchamber"
+          "Name": "openflow",
+          "Comment": "openflow automation workbench",
+          "Icon": "openflow",
+          "StartupWMClass": "openflow"
         }
       }
     },
@@ -211,7 +212,7 @@
     },
     "publish": {
       "provider": "github",
-      "owner": "openchamber",
+      "owner": "JiChenSSG",
       "repo": "openchamber"
     }
   }

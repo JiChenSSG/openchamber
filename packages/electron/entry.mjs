@@ -8,8 +8,11 @@
  * module evaluation runs on the thread Chromium needs to finish initialising.
  */
 
+import '@openchamber/web/server/lib/opencode/flow-storage-init.js';
 import { app, protocol } from 'electron';
 import path from 'node:path';
+import os from 'node:os';
+import { assignInjectedEnv } from '@openchamber/web/server/lib/injected-env.js';
 import { plainChromeUserAgent } from './browser-panel-security.mjs';
 import { enableMainProcessCompileCache } from './compile-cache.mjs';
 import { shouldIgnoreLoopbackConnectionLimit } from './startup-url-selection.mjs';
@@ -20,6 +23,7 @@ import {
   deferAppEventsUntilMainLoads,
   isDev,
   recordEarlyStartupMark,
+  resolveDesktopUserDataPath,
   shellEnvironmentProbeBlocksMainThread,
   shouldStartInBackground,
   startShellEnvironmentProbe,
@@ -28,9 +32,12 @@ import {
 recordEarlyStartupMark('electron.entry');
 
 // Set the product name early so electron-log derives its log directory as
-// ~/Library/Logs/OpenChamber/ (not ~/Library/Logs/@openchamber/electron/).
+// the openflow log directory before the backend or any window starts.
 const versionBeforeRename = app.getVersion();
-app.setName('OpenChamber');
+app.setName('openflow');
+assignInjectedEnv(process.env, {
+  OPENCHAMBER_DATA_DIR: process.env.OPENCHAMBER_DATA_DIR?.trim() || path.join(os.homedir(), '.config', 'openchamber-flow'),
+});
 // An unpackaged run on Linux reports version "0.0" after the rename, and
 // electron-updater refuses a version that is not semver, so the dev app quit
 // before its first window. Restoring the version from before the rename gives
@@ -40,7 +47,7 @@ if (app.getVersion() !== versionBeforeRename) {
   app.setVersion(versionBeforeRename);
 }
 if (process.platform === 'linux') {
-  app.setDesktopName('openchamber.desktop');
+  app.setDesktopName('openflow.desktop');
 }
 // Shared and service workers ignore the browser panel's session user agent and
 // use this fallback. Left at Electron's default, a page saw plain Chrome in its
@@ -48,17 +55,14 @@ if (process.platform === 'linux') {
 // Turnstile rejected it (error 600010). Set before the first window: once one
 // has loaded, the default session keeps Electron's agent for its own requests.
 app.userAgentFallback = plainChromeUserAgent(app.userAgentFallback);
-if (isDev) {
-  app.setPath('userData', path.join(app.getPath('appData'), 'OpenChamber Dev'));
-}
-// Test hook for scripts/profile-startup.mjs: a packaged launch that must not
-// share the single-instance lock or the Chromium profile with the installed
-// app. macOS resolves the home directory from the user record, not $HOME, so
-// an environment-only isolation cannot move these.
-const userDataOverride = String(process.env.OPENCHAMBER_DESKTOP_USER_DATA_DIR || '').trim();
-if (userDataOverride) {
-  app.setPath('userData', userDataOverride);
-}
+// Keep the existing Flow profile: changing the product name must not create
+// an empty Chromium profile or discard saved hosts and device preferences.
+// The override also isolates startup probes: OS appData paths are not reliably
+// redirected by HOME/APPDATA on either macOS or Windows.
+app.setPath('userData', resolveDesktopUserDataPath({
+  appDataDir: app.getPath('appData'), development: isDev,
+  override: process.env.OPENCHAMBER_DESKTOP_USER_DATA_DIR,
+}));
 // After the userData path is final, before main.mjs and the server load.
 enableMainProcessCompileCache({ packaged: app.isPackaged, userDataDir: app.getPath('userData') });
 app.setAppUserModelId(APP_USER_MODEL_ID);

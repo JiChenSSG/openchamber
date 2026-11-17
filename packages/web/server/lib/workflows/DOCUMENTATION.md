@@ -22,6 +22,13 @@ the run's card and the Workflows panel open them.
 
 ## Ownership
 
+The server-owned [Flow workbench](../flow/DOCUMENTATION.md) runs individual
+nodes through `runStep`. These managed runs retain ordinary checkpoints and
+explicit skill attachments but suppress owner-session wakeups. Flow is the only
+owner allowed to resume them; generic workflow deletion cannot remove a linked
+node needed for task recovery. Existing stored runs without these fields keep
+their original behavior.
+
 - `script.js`: parses a script into `meta` (`name`, `description`, `phases`)
   and the body, and checks that the body compiles. Errors are written for the
   agent that wrote the script.
@@ -63,6 +70,30 @@ the action list in `../openchamber-control/actions.js`; when to offer a
 workflow in `../session-knowledge/runtime.js` (`WORKFLOW_GUIDANCE`).
 
 ## Lifecycle
+
+The UI's built-in `@flow/delivery` preset is available alongside saved scripts. Its
+reserved name cannot collide with a saved filename. It runs Research, Plan,
+Develop and Review, routing actionable findings back to Develop for at most
+three review rounds by default. A blocked, invalid or exhausted review cannot
+reach Release preparation. The reviewer reports completion, findings and
+evidence without a release verdict; the router accepts only a completed review
+with evidence and no findings.
+
+The user's start form defaults to a new worktree and a fresh owner session.
+Worktree creation uses the existing Git bridge and fails before any session
+starts when isolation is unavailable. An explicit `runInWorktree: false` uses
+the supplied directory. Worktrees remain for inspection and release, including
+after a failed run. A failure after creation can leave an empty session or
+worktree, as other saved-workflow admission failures do.
+
+Release preparation is a stored candidate with `published: false` and
+`status: awaiting-publication-approval`. The preset implements no publishing
+operation. The parent receives the report through the existing delivery path;
+external publication requires a separate authorization. Agent and reviewer
+selection can be supplied through the preset args; existing permission rules
+continue to govern their tools. Stage instructions do not grant permissions.
+The agent-facing `workflow.list` lists project-saved scripts only; its
+`workflow.run` action cannot approve the built-in's worktree start form.
 
 1. `workflow.run` parses the script (or reads a saved one by name), stores a
    run in `awaiting-approval` and answers at once with its id. Nothing runs.
@@ -183,6 +214,19 @@ session proposed. `workflow.save` writes a script to
   has not gone out.
 
 ## Decisions
+
+### Why delivery is a built-in user start
+
+The preset ships with the app without writing scripts into a user's project.
+Its reserved identifier separates it from saved filenames. The user's form
+approves both the task and worktree choice before Git setup starts; the agent
+tool continues to propose ordinary saved scripts through its existing approval.
+
+### Why Release returns a candidate
+
+A passing review authorizes release preparation within this workflow. Publishing
+also needs a destination, credentials and an explicit authorization, which the
+preset does not accept. Its final record therefore keeps `published: false`.
 
 ### Why working references and call-time snapshots have separate contracts
 

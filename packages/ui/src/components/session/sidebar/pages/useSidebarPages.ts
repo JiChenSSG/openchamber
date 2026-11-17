@@ -1,4 +1,6 @@
 import React from 'react';
+import { FlowIcon } from '@/components/flow/FlowIcon';
+import { selectWorkflowsShown } from '@/lib/workflows/availability';
 import type { IconName } from '@/components/icon/icons';
 import { useGuestPages } from '@/hooks/useGuestSurfaces';
 import { useI18n } from '@/lib/i18n';
@@ -30,12 +32,10 @@ function builtinPageIcon(id: BuiltinPageId): IconName {
 export type SidebarPage = {
   id: string;
   label: string;
-  icon: IconName;
-  iconSrc: string | null;
   open: boolean;
   toggle: () => void;
   shortcut: ShortcutActionId | null;
-};
+} & ({ icon: IconName; iconSrc: string | null } | { iconComponent: React.ComponentType<{ className?: string }> });
 
 /**
  * The pages the sidebar opens in the main area, in their order: the built-in
@@ -47,6 +47,8 @@ export const useSidebarPages = (enabled: boolean): readonly SidebarPage[] => {
   const overviewAvailable = useUIStore((state) => state.overviewFeatureAvailable);
   const isOverviewOpen = useUIStore((state) => state.isOverviewOpen);
   const isSourceBoardOpen = useUIStore((state) => state.isSourceBoardOpen);
+  const isFlowBoardOpen = useUIStore((state) => state.isFlowBoardOpen);
+  const showFlowBoard = useUIStore(selectWorkflowsShown);
   const isScheduledOpen = useUIStore((state) => state.isScheduledTasksDialogOpen);
   const isArchiveOpen = useUIStore((state) => state.isArchivePageOpen);
   const isUsageOpen = useUIStore((state) => state.isUsageStatsPageOpen);
@@ -62,6 +64,9 @@ export const useSidebarPages = (enabled: boolean): readonly SidebarPage[] => {
       { id, label, icon: builtinPageIcon(id), iconSrc: null, open, toggle: () => set(!open), shortcut }
     );
     const pages: SidebarPage[] = [];
+    if (showFlowBoard) {
+      pages.push({ id: 'flow', label: t('flow.title'), iconComponent: FlowIcon, open: isFlowBoardOpen, toggle: () => ui().setFlowBoardOpen(!isFlowBoardOpen), shortcut: null });
+    }
     if (overviewAvailable) {
       pages.push(builtin('overview', t('overview.title'), isOverviewOpen, (open) => ui().setOverviewOpen(open), 'open_overview'));
     }
@@ -89,5 +94,5 @@ export const useSidebarPages = (enabled: boolean): readonly SidebarPage[] => {
       });
     }
     return pages;
-  }, [enabled, enterpriseMode, guestPages, isArchiveOpen, isIntegrationsCatalogOpen, isOverviewOpen, isScheduledOpen, isSourceBoardOpen, isUsageOpen, openGuestPageId, overviewAvailable, t]);
+  }, [enabled, enterpriseMode, guestPages, isArchiveOpen, isFlowBoardOpen, isIntegrationsCatalogOpen, isOverviewOpen, isScheduledOpen, isSourceBoardOpen, isUsageOpen, openGuestPageId, overviewAvailable, showFlowBoard, t]);
 };

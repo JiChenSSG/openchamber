@@ -17,6 +17,7 @@ const startBodySchema = z.object({
   sessionId: z.string().trim().min(1).nullish(),
   name: z.string().trim().min(1),
   args: z.json().optional(),
+  runInWorktree: z.boolean().optional(),
 });
 
 /**

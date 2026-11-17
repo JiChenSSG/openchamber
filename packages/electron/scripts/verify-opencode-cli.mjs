@@ -4,11 +4,12 @@ import { fileURLToPath } from 'node:url';
 import { readPinnedOpenCodeCliVersion, runOpenCodeCliVersion } from './opencode-cli-version.mjs';
 import { resolveTargetArchitecture } from './target-architecture.mjs';
 import { readPeArchitecture } from './windows-executable.mjs';
+import { bundledOpenCodeCliName } from './bundled-opencode-name.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const electronRoot = path.resolve(__dirname, '..');
 
-const binaryName = () => process.platform === 'win32' ? 'opencode.exe' : 'opencode';
+const binaryName = bundledOpenCodeCliName;
 
 const assertBinary = (binaryPath, expectedVersion) => {
   if (!fs.existsSync(binaryPath)) {

@@ -1461,7 +1461,10 @@ describe('OpenCode lifecycle', () => {
     await server.close();
   });
 
-  it('tops up the v1 session migration before spawning managed OpenCode', async () => {
+  it.each([
+    { scope: 'user environment', managed: {}, expected: { XDG_DATA_HOME: '/custom/data', OPENCODE_DB: '/original.db', OPENCODE_CONFIG_DIR: '/custom/config' } },
+    { scope: 'Flow storage and shared config', managed: { XDG_DATA_HOME: '/flow', OPENCODE_DB: '/flow/opencode/opencode.db', OPENCODE_CONFIG_DIR: '/home/.config/opencode' }, expected: { XDG_DATA_HOME: '/flow', OPENCODE_DB: '/flow/opencode/opencode.db', OPENCODE_CONFIG_DIR: '/home/.config/opencode' } },
+  ])('uses the same final $scope for migration and managed spawn', async ({ managed, expected }) => {
     const calls = [];
     const topUpV1SessionMigration = vi.fn(() => {
       calls.push('top-up');
@@ -1475,13 +1478,13 @@ describe('OpenCode lifecycle', () => {
     });
     globalThis.fetch = vi.fn(async () => ({ ok: false }));
 
-    const getUserEnvironment = vi.fn(() => ({ XDG_DATA_HOME: '/custom/data' }));
-    const runtime = createRuntime({ topUpV1SessionMigration, getUserEnvironment });
+    const getUserEnvironment = vi.fn(() => ({ XDG_DATA_HOME: '/custom/data', OPENCODE_DB: '/original.db', OPENCODE_CONFIG_DIR: '/custom/config' }));
+    const runtime = createRuntime({ topUpV1SessionMigration, getUserEnvironment, getManagedOpenCodeEnv: async () => managed });
     await runtime.startOpenCode();
 
     expect(topUpV1SessionMigration).toHaveBeenCalledTimes(1);
-    expect(topUpV1SessionMigration.mock.calls[0][0].env.XDG_DATA_HOME).toBe('/custom/data');
-    expect(spawnMock.mock.calls[0][2].env.XDG_DATA_HOME).toBe('/custom/data');
+    expect(topUpV1SessionMigration.mock.calls[0][0].env).toMatchObject(expected);
+    expect(spawnMock.mock.calls[0][2].env).toMatchObject(expected);
     expect(calls).toEqual(['top-up', 'spawn']);
   });
 

@@ -2,7 +2,7 @@
 
 ## Ownership
 
-This module resolves project roots and lists worktree topology through the runtime Git API. The sidebar owns publication of that topology into the session stores.
+This module resolves project roots and lists worktree topology through the runtime Git API. The sidebar owns background publication of that topology into the session stores. Explicit create operations and `refreshProjectWorktrees` publish the affected project's complete topology after a successful read, before admitting its session. A failed or retired refresh preserves the previous topology.
 
 ## Invariants
 
@@ -13,6 +13,13 @@ This module resolves project roots and lists worktree topology through the runti
 - A move into a newly created worktree seeds its task title from the session's current title. Explicit `workTitle.by: 'user'` retains user ownership; every other title is agent-owned so `work.name` may replace it.
 
 ## Decisions
+
+### Why a server-created worktree refreshes before session selection
+
+The workflow start creates its worktree on the server, so the client's create
+operation never seeds the sidebar index. An explicit refresh publishes only the
+affected project after an authoritative read and owner check, allowing the new
+session's directory to resolve before it opens.
 
 ### Why topology revisions and instance ownership are separate
 

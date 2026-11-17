@@ -10,7 +10,7 @@ mock.module('electron', () => ({
   protocol: {},
   screen: {},
 }));
-const { buildMainWindowOptions } = await import('./early-startup.mjs');
+const { buildMainWindowOptions, resolveDesktopUserDataPath } = await import('./early-startup.mjs');
 
 const originalPlatform = process.platform;
 const originalDataDir = process.env.OPENCHAMBER_DATA_DIR;
@@ -25,6 +25,17 @@ const writeSettings = (settings) => {
 };
 
 const mainWindowOptions = () => buildMainWindowOptions({ bounds: null, backgroundColor: '#000000', additionalArguments: [] });
+
+test.each([[false, 'OpenChamber Flow'], [true, 'OpenChamber Flow Dev']])('retains the existing profile with development=%s', (development, folder) => {
+  const appDataDir = path.resolve('profile-fixture');
+  expect(resolveDesktopUserDataPath({ appDataDir, development })).toBe(path.join(appDataDir, folder));
+});
+
+test('an explicit profile override wins over both legacy profile defaults', () => {
+  for (const development of [false, true]) {
+    expect(resolveDesktopUserDataPath({ appDataDir: '/unused', development, override: '  D:/isolated/profile  ' })).toBe('D:/isolated/profile');
+  }
+});
 
 beforeAll(() => {
   dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'oc-early-startup-'));

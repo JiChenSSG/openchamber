@@ -108,6 +108,44 @@ const setup = async (agentSessions, options = {}) => {
 
 const script = (body, phases = "['Work']") => `export const meta = { name: 'test-flow', description: 'A test', phases: ${phases} }\n${body}`;
 
+describe('server-owned Flow nodes', () => {
+  it('checkpoints the node before dispatch, reuses its completed answer and never wakes its owner', async () => {
+    let linked = false;
+    let starts = 0;
+    const sessions = fakeAgentSessions({ answer: () => '{"summary":"verified"}', duringTurn: async () => { expect(linked).toBe(true); } });
+    const { runtime, dataDir } = await setup(sessions);
+    const input = {
+      directory: dataDir, sessionId: 'ses_parent', prompt: 'Do one piece',
+      options: { schema: { type: 'object', required: ['summary'], properties: { summary: { type: 'string' } } }, skills: ['to-spec'] },
+      signal: new AbortController().signal,
+      onRun: async () => { linked = true; }, onStart: async () => { starts += 1; },
+    };
+    const completed = await runtime.runStep(input);
+    expect(completed.result).toEqual({ summary: 'verified' });
+    expect((await runtime.runStep({ ...input, runId: completed.runId })).result).toEqual({ summary: 'verified' });
+    expect(starts).toBe(1);
+    expect(sessions.started).toHaveLength(1);
+    expect(sessions.reports).toEqual([]);
+    await expect(runtime.resume({ runId: completed.runId })).rejects.toMatchObject({ statusCode: 403 });
+    await expect(runtime.remove({ runId: completed.runId })).rejects.toMatchObject({ statusCode: 409 });
+  });
+
+  it('stops a linked node when its requirement is cancelled', async () => {
+    let ready;
+    const started = new Promise((resolve) => { ready = resolve; });
+    const sessions = fakeAgentSessions({ hang: ['Wait here'], duringTurn: async () => { ready(); } });
+    const { runtime, dataDir } = await setup(sessions);
+    const controller = new AbortController();
+    const result = runtime.runStep({ directory: dataDir, sessionId: 'ses_parent', prompt: 'Wait here', options: {}, signal: controller.signal, onRun: async () => {} });
+    const outcome = result.catch((error) => error);
+    await started;
+    controller.abort();
+    expect(await outcome).toBeInstanceOf(WorkflowAgentStopped);
+    expect(sessions.interrupted).toContain('ses_agent1');
+    expect(sessions.reports).toEqual([]);
+  });
+});
+
 // Exercise the real store and atomic rename, with only the failure boundary injected.
 const diskFault = () => {
   const disk = {
@@ -764,7 +802,7 @@ describe('workflow runtime', () => {
     const agents = fakeAgentSessions();
     const { runtime, act, dataDir } = await setup(agents);
     await act('workflow.save', { script: script("return agent('x')") });
-    expect(await runtime.listSaved({ directory: dataDir })).toEqual({ workflows: [{ name: 'test-flow', description: 'A test' }] });
+    expect((await runtime.listSaved({ directory: dataDir })).workflows).toContainEqual({ name: 'test-flow', description: 'A test' });
 
     const here = await runtime.startSaved({ directory: dataDir, sessionId: 'ses_parent', name: 'test-flow' });
     const fresh = await runtime.startSaved({ directory: dataDir, sessionId: null, name: 'test-flow' });

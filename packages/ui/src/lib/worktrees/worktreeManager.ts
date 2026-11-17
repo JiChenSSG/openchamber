@@ -667,6 +667,36 @@ export type CreateWorktreeArgs = {
   taskTitle?: string;
 };
 
+/** Reconcile a worktree created by the server before admitting its session. */
+export async function refreshProjectWorktrees(project: ProjectRef): Promise<void> {
+  const runtime = getRuntimeKey();
+  let retired = false;
+  const unsubscribe = subscribeRuntimeEndpointChanged(() => { retired = true; });
+  try {
+    const worktrees = await listProjectWorktrees(project, { force: true });
+    if (retired || getRuntimeKey() !== runtime) throw new Error('Server changed during worktree refresh');
+    const directory = normalizePath(project.path);
+    invalidateResolvedProjectRootCache();
+    useSessionUIStore.setState((state) => {
+      const byProject = new Map(state.availableWorktreesByProject);
+      const affectedPaths = new Set(worktrees.map((worktree) => normalizePath(worktree.path)));
+      for (const [key, previous] of byProject) {
+        if (normalizePath(key) !== directory) continue;
+        for (const worktree of previous) affectedPaths.add(normalizePath(worktree.path));
+        byProject.delete(key);
+      }
+      byProject.set(directory, worktrees);
+      return {
+        availableWorktreesByProject: byProject,
+        availableWorktrees: [
+          ...state.availableWorktrees.filter((worktree) => !affectedPaths.has(normalizePath(worktree.path)) && normalizePath(worktree.projectDirectory) !== directory),
+          ...worktrees,
+        ],
+      };
+    });
+  } finally { unsubscribe(); }
+}
+
 export async function createWorktree(project: ProjectRef, args: CreateWorktreeArgs): Promise<WorktreeMetadata> {
   const runtime = getRuntimeKey();
   let cancelled = false;

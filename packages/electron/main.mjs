@@ -249,7 +249,7 @@ try {
 }
 
 try {
-  if (!app.isDefaultProtocolClient(DEEP_LINK_PROTOCOL)) {
+  if (app.getName() !== 'openflow' && !app.isDefaultProtocolClient(DEEP_LINK_PROTOCOL)) {
     app.setAsDefaultProtocolClient(DEEP_LINK_PROTOCOL);
   }
 } catch (error) {
@@ -435,7 +435,7 @@ const quitConfirmationMessage = () => {
   if (reasons.length === 0) {
     return 'Background processes (sidecar, SSH sessions) will be stopped.';
   }
-  return `OpenChamber detected ${reasons.join(', ')}. Quitting now will stop sidecar/background processes and may interrupt pending work.`;
+  return `openflow detected ${reasons.join(', ')}. Quitting now will stop sidecar/background processes and may interrupt pending work.`;
 };
 
 const shutdownBackgroundServices = () => {
@@ -619,8 +619,8 @@ const requestQuitWithConfirmation = async () => {
   try {
     const result = await dialog.showMessageBox({
       type: 'warning',
-      title: 'Quit OpenChamber?',
-      message: 'Quit OpenChamber?',
+      title: 'Quit openflow?',
+      message: 'Quit openflow?',
       detail: quitConfirmationMessage(),
       buttons: ['Quit', 'Cancel'],
       defaultId: 1,
@@ -1424,7 +1424,7 @@ const maybeShowNativeNotification = (rawInput) => {
 
   const title = typeof payload.title === 'string' && payload.title.trim()
     ? payload.title.trim()
-    : 'OpenChamber';
+    : 'openflow';
   const body = typeof payload.body === 'string' ? payload.body : '';
   const sessionId = typeof payload.sessionId === 'string' && payload.sessionId.trim()
     ? payload.sessionId.trim()
@@ -1899,7 +1899,7 @@ const loginRemoteAndIssueClientToken = async ({ url, password, trustDevice, requ
       password: candidatePassword,
       trustDevice: trustDevice === true,
       issueClientToken: true,
-      clientLabel: 'OpenChamber Desktop',
+      clientLabel: 'openflow Desktop',
       ...clientIdentity,
     }),
   });
@@ -1927,7 +1927,7 @@ const loginRemoteAndIssueClientToken = async ({ url, password, trustDevice, requ
       Cookie: cookie,
     },
     body: JSON.stringify({
-      label: 'OpenChamber Desktop',
+      label: 'openflow Desktop',
       ...clientIdentity,
     }),
   });
@@ -3697,7 +3697,7 @@ const applyUpdaterChannel = (channel, source = pickUpdaterSource({ mirrorFailedA
 };
 
 const setupAutoUpdater = () => {
-  if (!app.isPackaged) {
+  if (!app.isPackaged || app.getName() === 'openflow') {
     return;
   }
   autoUpdater.autoDownload = false;
@@ -5143,7 +5143,7 @@ const handleInvoke = async (browserWindow, command, args = {}) => {
     }
 
     case 'desktop_check_for_updates': {
-      assertUpdaterCapability({ packaged: app.isPackaged });
+      assertUpdaterCapability({ packaged: app.isPackaged, manualOnly: app.getName() === 'openflow' });
       // electron-updater answers a check that is already running, for the
       // feed it started on. A channel switched meanwhile waits for that check
       // to end, then checks its own feed.
@@ -5205,7 +5205,7 @@ const handleInvoke = async (browserWindow, command, args = {}) => {
     }
 
     case 'desktop_download_and_install_update':
-      assertUpdaterCapability({ packaged: app.isPackaged });
+      assertUpdaterCapability({ packaged: app.isPackaged, manualOnly: app.getName() === 'openflow' });
       if (!state.pendingUpdate) {
         throw new Error('No pending update');
       }
@@ -5234,7 +5234,7 @@ const handleInvoke = async (browserWindow, command, args = {}) => {
 
     case 'desktop_restart': {
       const applyUpdate = Boolean(state.pendingUpdate?.downloaded && app.isPackaged);
-      if (applyUpdate) assertUpdaterCapability({ packaged: app.isPackaged });
+      if (applyUpdate) assertUpdaterCapability({ packaged: app.isPackaged, manualOnly: app.getName() === 'openflow' });
       log.info(`[electron] desktop_restart applyUpdate=${applyUpdate} packaged=${app.isPackaged}`);
       if (applyUpdate && process.platform === 'darwin' && typeof app.isInApplicationsFolder === 'function') {
         try {

@@ -34,6 +34,25 @@ const createSessionRequest = async ({ parent, allowTools, model }) => {
 };
 
 describe('workflow agent sessions', () => {
+  it('sends an explicitly selected variant in the session model reference', async () => {
+    const request = await createSessionRequest({ parent: null, allowTools: [], model: 'fixture/model#fast' });
+    expect(request.model).toEqual({ providerID: 'fixture', id: 'model', variant: 'fast' });
+  });
+
+  it('attaches explicitly selected skills to the prompt rather than mentioning their names only', async () => {
+    let sent;
+    const sessions = createWorkflowAgentSessions({
+      buildOpenCodeUrl: (route) => `http://localhost:4096${route}`,
+      getOpenCodeAuthHeaders: () => ({}), globalEventHub: { subscribeEvent: () => () => {} },
+      createClient: () => ({
+        session: { create: async () => ({ id: 'ses_skills' }), prompt: async (body) => { sent = body; throw new Error('dispatch boundary'); } },
+        message: { list: async () => ({ data: [] }) },
+      }),
+    });
+    await expect(sessions.start({ directory: '/repo', parentSessionId: 'ses_parent', title: 'Spec', model: 'fixture/model', skills: ['to-spec'], text: 'Write the spec', signal: new AbortController().signal, onSession: async () => {} })).rejects.toThrow('dispatch boundary');
+    expect(sent).toMatchObject({ text: 'Write the spec', skills: [{ id: 'to-spec' }] });
+    sessions.stop();
+  });
   it.each([false, true])('awaits the child-id checkpoint before prompting, rejection=%s', async (rejectCheckpoint) => {
     let release;
     let seen;

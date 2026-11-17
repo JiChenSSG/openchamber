@@ -14,7 +14,7 @@ const ticket = (id, blockedBy = []) => ({ id, title: id, description: `Deliver $
 const cleanReview = { ...notes, complete: true, findings: [], suggestions: ['Optional improvement'] };
 const issue = { file: 'module.js:5', scenario: 'Normal input', cause: 'Incorrect output', fix: 'Correct the output' };
 
-const harness = async ({ results = {}, resultFactories = {}, limit = 3, decisions, fsImpl = fs } = {}) => {
+const harness = async ({ results = {}, resultFactories = {}, limit = 3, decisions, fsImpl = fs, isEnabled = async () => true, runStep } = {}) => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'flow-runtime-'));
   roots.push(root);
   const store = createFlowStore({ fsPromises: fsImpl, path, dataDir: root });
@@ -33,7 +33,7 @@ const harness = async ({ results = {}, resultFactories = {}, limit = 3, decision
     return output;
   } };
   const dependencies = {
-    store, workflows,
+    store, workflows: runStep ? { runStep } : workflows, isEnabled,
     agentSessions: { createSession: async () => 'owner-fixture' },
     worktrees: { isGitRepository: async () => true, create: async () => ({ directory: '/fixture-worktree' }) },
     generate: async (input) => {
@@ -56,6 +56,60 @@ const harness = async ({ results = {}, resultFactories = {}, limit = 3, decision
 };
 
 describe('Flow task delivery', () => {
+  it('stops a board node through the tool and retains its checkpoint', async () => {
+    let markStarted;
+    const started = new Promise((resolve) => { markStarted = resolve; });
+    const { runtime, requirement } = await harness({ runStep: async ({ onRun, onStart, signal }) => {
+      await onRun('wf_paused');
+      await onStart();
+      return new Promise((_resolve, reject) => {
+        signal.addEventListener('abort', () => reject(new Error('Node interrupted')), { once: true });
+        markStarted();
+      });
+    } });
+    await runtime.executeAction('flow.start', { requirementId: requirement.id });
+    await started;
+    const stopped = await runtime.executeAction('flow.stop', { requirementId: requirement.id });
+    expect(stopped).toMatchObject({ state: 'attention', workspace: requirement.workspace, pending: { runId: 'wf_paused' } });
+    await expect(runtime.executeAction('flow.stop', { requirementId: requirement.id })).rejects.toMatchObject({ statusCode: 409 });
+  });
+
+  it('runs board actions with the same acceptance and revision rules as the board UI', async () => {
+    const { runtime, requirement } = await harness();
+    const input = { requirementId: requirement.id };
+    await runtime.executeAction('flow.start', input);
+    const ready = await runtime.waitForIdle(requirement.id);
+    await expect(runtime.executeAction('flow.accept', { ...input, ticketId: 'T1', revision: 0 })).rejects.toMatchObject({ statusCode: 409 });
+    await expect(runtime.executeAction('flow.accept', { ...input, ticketId: 'T1' })).rejects.toMatchObject({ statusCode: 400 });
+    await expect(runtime.executeAction('flow.accept', { ...input, revision: ready.revision })).rejects.toMatchObject({ statusCode: 409 });
+    const accepted = await runtime.executeAction('flow.accept', { ...input, ticketId: 'T1', revision: ready.revision });
+    expect(accepted.tickets[0].state).toBe('done');
+    await runtime.executeAction('flow.start', input);
+    const verified = await runtime.waitForIdle(requirement.id);
+    expect((await runtime.executeAction('flow.accept', { ...input, revision: verified.revision })).state).toBe('done');
+  });
+
+  it('requires current revisions and a complete ordered set of nonempty board answers', async () => {
+    const { runtime, store, requirement } = await harness();
+    const waiting = await store.update(requirement.id, (draft) => { draft.questions = ['Which behavior?', 'Which platform?']; });
+    const input = { requirementId: waiting.id, answers: ['Option A', 'Web'], revision: waiting.revision };
+    for (const [invalid, statusCode] of [[{ revision: undefined }, 400], [{ revision: 0 }, 409], [{ answers: ['Option A'] }, 400], [{ answers: ['Option A', ' '] }, 400]]) {
+      await expect(runtime.executeAction('flow.answer', { ...input, ...invalid })).rejects.toMatchObject({ statusCode });
+    }
+    expect((await store.get(waiting.id)).questions).toEqual(waiting.questions);
+    const answered = await runtime.executeAction('flow.answer', input);
+    expect(answered).toMatchObject({ state: 'todo', questions: [], answers: [{ question: 'Which behavior?', answer: 'Option A' }, { question: 'Which platform?', answer: 'Web' }] });
+  });
+
+  it('refuses every board tool action after Workflows is disabled', async () => {
+    let enabled = true;
+    const { runtime, requirement } = await harness({ isEnabled: async () => enabled });
+    enabled = false;
+    for (const action of ['flow.list', 'flow.create', 'flow.start', 'flow.stop', 'flow.answer', 'flow.accept']) {
+      await expect(runtime.executeAction(action, { requirementId: requirement.id }, { directory: '/fixture' })).rejects.toMatchObject({ statusCode: 403 });
+    }
+  });
+
   it('adds dependent tickets immediately and requires acceptance before dispatching their dependents', async () => {
     const { runtime, requirement, calls, routerInputs } = await harness({ results: { tickets: { ...notes, tickets: [ticket('T1'), ticket('T2', ['T1'])] } } });
     await runtime.start(requirement.id);

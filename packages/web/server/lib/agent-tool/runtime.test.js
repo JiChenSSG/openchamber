@@ -11,6 +11,8 @@ import { createAgentToolRuntime } from './runtime.js';
 import { createOpenChamberControlService } from '../openchamber-control/service.js';
 import { createProjectContextRuntime } from '../project-context/runtime.js';
 import { createProjectIdFromPath } from '../projects/project-id.js';
+import { createFlowRuntime } from '../flow/runtime.js';
+import { createFlowStore } from '../flow/store.js';
 import { OPENCHAMBER_AGENT_TOOL_ACTION_DEFINITIONS, OPENCHAMBER_CONTROL_ACTION_DEFINITIONS } from '../openchamber-control/actions.js';
 
 const temporaryDirectories = [];
@@ -496,10 +498,17 @@ describe('managed agent tool runtime', () => {
     expect(sent[2].contextDirectory).toBeUndefined();
   });
 
-  it('declares the workflow tool only when asked, with the scripting guide on script', async () => {
+  it('exposes the board beside workflows and removes both when the shared switch is off', async () => {
     const { runtime, dataDir } = await createRuntime();
     await prepareManagedEnv(runtime, { includeControl: true, includeWorkflow: true });
-    const tools = await loadTools(dataDir, 'workflow-tool');
+    const namespaces = [];
+    const tools = await loadTools(dataDir, 'workflow-tool', {}, [], namespaces);
+
+    expect(tools.openchamber_flow.input.properties.action.enum).toEqual([
+      'flow.list', 'flow.create', 'flow.start', 'flow.stop', 'flow.answer', 'flow.accept',
+    ]);
+    expect(tools.openchamber_flow.options).toEqual({ codemode: true });
+    expect(namespaces).toContainEqual(expect.objectContaining({ name: 'openchamber_flow' }));
 
     expect(tools.openchamber_workflow.input.properties.action.enum).toEqual([
       'workflow.check', 'workflow.run', 'workflow.status', 'workflow.result', 'workflow.stop', 'workflow.resume', 'workflow.save', 'workflow.list',
@@ -515,6 +524,54 @@ describe('managed agent tool runtime', () => {
     const off = await loadTools(dataDir, 'workflow-tool-off');
     expect(off.openchamber_workflow).toBeUndefined();
     expect(off.openchamber_workflow_answer).toBeUndefined();
+    expect(off.openchamber_flow).toBeUndefined();
+  });
+
+  it('runs generated board calls through authenticated HTTP, the control service and real storage', async () => {
+    let enabled = true;
+    const directory = '/repo';
+    const { runtime, dataDir } = await createRuntime({
+      resolveSessionDirectory: async () => directory,
+      executeAction: (...args) => service.execute(...args),
+    });
+    const store = createFlowStore({ fsPromises: fs, path, dataDir });
+    const flowRuntime = createFlowRuntime({
+      store, isEnabled: async () => enabled,
+      agentSessions: { createSession: async () => 'ses_board_owner' },
+      worktrees: { isGitRepository: async () => true, create: async () => ({ directory: '/repo-worktree' }) },
+    });
+    const service = createOpenChamberControlService({ flowRuntime });
+    const prepared = await prepareManagedEnv(runtime, { includeWorkflow: true });
+    const tools = await loadTools(dataDir, 'persistent-board');
+    const app = express();
+    runtime.registerRoutes(app, express);
+    const server = await new Promise((resolve) => {
+      const listener = app.listen(0, '127.0.0.1', () => resolve(listener));
+    });
+    const originalUrl = process.env.OPENCHAMBER_AGENT_TOOL_URL;
+    const originalToken = process.env.OPENCHAMBER_AGENT_TOOL_TOKEN;
+    process.env.OPENCHAMBER_AGENT_TOOL_URL = `http://127.0.0.1:${server.address().port}/api/openchamber/agent-tool`;
+    process.env.OPENCHAMBER_AGENT_TOOL_TOKEN = prepared.OPENCHAMBER_AGENT_TOOL_TOKEN;
+    const call = async (action, parameters = {}) => JSON.parse((await tools.openchamber_flow.execute(
+      { action, parameters }, { sessionID: 'ses_caller', progress: async () => {} },
+    )).content);
+    try {
+      const created = await call('create', { title: 'Board task', task: 'Deliver the requested behavior' });
+      expect(created).toMatchObject({ ok: true, action: 'flow.create', data: { directory, workspace: '/repo-worktree', state: 'todo', revision: 0, sessionId: 'ses_board_owner' } });
+      expect(await call('list')).toMatchObject({ ok: true, data: { requirements: [expect.objectContaining({ id: created.data.id, task: 'Deliver the requested behavior' })] } });
+      expect(await call('list', { directory: '/other' })).toMatchObject({ ok: true, data: { requirements: [] } });
+      expect(await call('start', { requirementId: 'invalid' })).toMatchObject({ ok: false, error: { kind: 'usage' } });
+      enabled = false;
+      expect(await call('create', { title: 'Disabled', task: 'Must not create' })).toMatchObject({ ok: false, error: { kind: 'usage', message: expect.stringContaining('Enable Workflows') } });
+      expect((await store.list(directory)).requirements).toHaveLength(1);
+    } finally {
+      if (originalUrl === undefined) delete process.env.OPENCHAMBER_AGENT_TOOL_URL;
+      else process.env.OPENCHAMBER_AGENT_TOOL_URL = originalUrl;
+      if (originalToken === undefined) delete process.env.OPENCHAMBER_AGENT_TOOL_TOKEN;
+      else process.env.OPENCHAMBER_AGENT_TOOL_TOKEN = originalToken;
+      await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+      await flowRuntime.shutdown();
+    }
   });
 
   it('runs the one action of a single-action tool, reviving a call stuffed into the action as JSON', async () => {
@@ -857,6 +914,7 @@ describe('managed agent tool runtime', () => {
 
     expect(Object.keys(tools).sort()).toEqual([
       'openchamber',
+      'openchamber_flow',
       'openchamber_image',
       'openchamber_knowledge',
       'openchamber_memory',

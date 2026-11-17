@@ -19,6 +19,14 @@ describe('a namespace the tool name already implies', () => {
     expect(resolveAgentToolAction('delete', 'openchamber_schedule')).toEqual({ action: 'schedule.delete' });
   });
 
+  test('resolves board actions within their tool without crossing into workflows', () => {
+    expect(resolveAgentToolAction('start', 'openchamber_flow')).toEqual({ action: 'flow.start' });
+    expect(resolveAgentToolAction('list', 'openchamber_flow')).toEqual({ action: 'flow.list' });
+    expect(resolveAgentToolAction('flow.accept', 'openchamber_flow')).toEqual({ action: 'flow.accept' });
+    expect(resolveAgentToolAction('workflow.run', 'openchamber_flow').action).toBeUndefined();
+    expect(resolveAgentToolAction('flow.start', 'openchamber_workflow').action).toBeUndefined();
+  });
+
   test('resolves the knowledge verbs inside their own tool only', () => {
     expect(resolveAgentToolAction('save', 'openchamber_knowledge')).toEqual({ action: 'knowledge.save' });
     expect(resolveAgentToolAction('show', 'openchamber_knowledge')).toEqual({ action: 'knowledge.show' });

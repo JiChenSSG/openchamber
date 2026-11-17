@@ -2426,6 +2426,7 @@ const openChamberControlService = createOpenChamberControlService({
   prWatch: prWatchRuntime,
   extensionWaits: extensionWaitsRuntime,
   workflowRuntime,
+  flowRuntime,
   archiveStore: openChamberSessionService.archiveStore,
   // The module the quota routes load, loaded on the first read: the same
   // instance, extension providers included.

@@ -5,6 +5,8 @@ import { asNonEmptyString, isBoolean } from '../shared/guards.js';
 import {
   OPENCHAMBER_AGENT_TOOL_ACTION_DEFINITIONS,
   OPENCHAMBER_AGENT_TOOL_ACTIONS,
+  OPENCHAMBER_FLOW_ACTION_DEFINITIONS,
+  OPENCHAMBER_FLOW_ACTIONS,
   OPENCHAMBER_IMAGE_ACTION_DEFINITIONS,
   OPENCHAMBER_IMAGE_ACTIONS,
   OPENCHAMBER_KNOWLEDGE_ACTION_DEFINITIONS,
@@ -70,6 +72,7 @@ const ACTIONS = new Set([
   ...OPENCHAMBER_SECRET_ACTIONS,
   ...OPENCHAMBER_USAGE_ACTIONS,
   ...OPENCHAMBER_WORKFLOW_ACTIONS,
+  ...OPENCHAMBER_FLOW_ACTIONS,
   ...OPENCHAMBER_WORKFLOW_ANSWER_ACTIONS,
 ]);
 const AGENT_TOOL_ACTION_TITLES = Object.fromEntries(
@@ -85,6 +88,7 @@ const AGENT_TOOL_ACTION_TITLES = Object.fromEntries(
     ...OPENCHAMBER_SECRET_ACTION_DEFINITIONS,
     ...OPENCHAMBER_USAGE_ACTION_DEFINITIONS,
     ...OPENCHAMBER_WORKFLOW_ACTION_DEFINITIONS,
+    ...OPENCHAMBER_FLOW_ACTION_DEFINITIONS,
     ...OPENCHAMBER_WORKFLOW_ANSWER_ACTION_DEFINITIONS,
   ].map(({ action, title }) => [action, title]),
 );
@@ -350,6 +354,17 @@ const WORKFLOW_PARAMETER_PROPERTIES = {
   overwrite: { type: 'boolean', description: 'workflow.save: replace a saved workflow of the same name' },
 };
 
+const FLOW_PARAMETER_PROPERTIES = {
+  directory: { type: 'string', description: 'List/create scope; defaults to this session\'s directory' },
+  requirementId: { type: 'string', description: 'From flow.list or flow.create, flw_ followed by 32 hex characters' },
+  title: { type: 'string', maxLength: 240 },
+  task: { type: 'string', maxLength: 20000, description: 'The requirement and its acceptance criteria' },
+  runInWorktree: { type: 'boolean', description: 'flow.create: defaults to true; false runs in the existing directory. Only disable isolation when the user asks' },
+  revision: { type: 'integer', minimum: 0, description: 'flow.answer/accept: latest revision from flow.list; refresh after a conflict' },
+  ticketId: { type: 'string', description: 'flow.accept: omit only for final requirement acceptance' },
+  answers: { type: 'array', items: { type: 'string', minLength: 1, maxLength: 8000 }, minItems: 1, maxItems: 6 },
+};
+
 // A JSON object, not JSON text in a string: text made models escape JSON
 // inside JSON, and some looped on it until their output budget ran out.
 const WORKFLOW_ANSWER_PARAMETER_PROPERTIES = {
@@ -423,6 +438,11 @@ const WORKFLOW_TOOL_DESCRIPTION = 'Workflows: a script that fans a large task ou
   + 'For work with many similar independent pieces (a review per file, an audit across many routes, a migration of many files, research cross-checked across sources) or a check that must run on every piece. A single feature or a few steps is not one: do it yourself or with a subagent. '
   + 'One action per call. Check a script with workflow.check, then workflow.run: the user approves the plan in the chat, and the report arrives as a message when the run ends. Read script before writing one.';
 
+const FLOW_TOOL_DESCRIPTION = 'OpenChamber task board: requirements progress through research, clarification, a Spec, dependency-linked Tickets, development, review and final verification. '
+  + 'Read the board with flow.list, create a requirement with flow.create, then flow.start to run it. Execution continues on the server when the board is closed. '
+  + 'Use flow.list to inspect progress, questions and failures; never poll in a loop. Answer or accept only decisions the user has made. Each dependent Ticket waits for explicit acceptance. '
+  + 'Completion never authorizes push, merge, publication or deployment. One action per call; available while Workflows is enabled.';
+
 // A field means the same thing in every tool that declares it, so one set
 // covers them all.
 const BOOLEAN_PARAMETER_NAMES = [...new Set([
@@ -434,6 +454,7 @@ const BOOLEAN_PARAMETER_NAMES = [...new Set([
   RENDER_PARAMETER_PROPERTIES,
   IMAGE_PARAMETER_PROPERTIES,
   WORKFLOW_PARAMETER_PROPERTIES,
+  FLOW_PARAMETER_PROPERTIES,
 ].flatMap((properties) => Object.entries(properties)
   .filter(([, schema]) => schema.type === 'boolean')
   .map(([name]) => name)))];
@@ -783,6 +804,7 @@ const CODE_MODE_CATALOG_LINES = {
   openchamber_knowledge: "The project's notes, todos and plans. Add a todo when asked or when you stop with work left",
   openchamber_notify: 'Notify the user outside the chat: when long work finishes and they have likely stepped away, when you are blocked on them, or when they asked to be told',
   openchamber_usage: 'Provider usage limits and reset times. Read it when the user asks about limits or usage, or when picking a model for work depends on them; never poll',
+  openchamber_flow: 'Task board: read, create, run and stop requirements; submit the user\'s answers and acceptance for dependency-linked Tickets',
 };
 
 /**
@@ -799,7 +821,7 @@ const OPENCODE_TOOLS_REPLACED_BY_CONTROL = ['opencode_worktree_create', 'opencod
 
 const createPluginSource = ({ includeControl, includeSchedule, includeWeb, includeMemory, includeKnowledge, includeNotify, includeRender, includeImage, includeSecret, includeUsage, includeWorkflow }) => {
   const entries = [];
-  const included = { openchamber: includeControl, openchamber_schedule: includeSchedule, openchamber_web: includeWeb, openchamber_memory: includeMemory, openchamber_knowledge: includeKnowledge, openchamber_notify: includeNotify, openchamber_usage: includeUsage };
+  const included = { openchamber: includeControl, openchamber_schedule: includeSchedule, openchamber_web: includeWeb, openchamber_memory: includeMemory, openchamber_knowledge: includeKnowledge, openchamber_notify: includeNotify, openchamber_usage: includeUsage, openchamber_flow: includeWorkflow };
   for (const [name, description] of Object.entries(CODE_MODE_CATALOG_LINES)) {
     if (included[name]) entries.push(`    tools.namespace(${JSON.stringify({ name, description })})
 `);
@@ -911,6 +933,13 @@ const createPluginSource = ({ includeControl, includeSchedule, includeWeb, inclu
     }));
   }
   if (includeWorkflow) {
+    entries.push(createToolEntry({
+      name: 'openchamber_flow',
+      description: FLOW_TOOL_DESCRIPTION,
+      definitions: OPENCHAMBER_FLOW_ACTION_DEFINITIONS,
+      parameters: FLOW_PARAMETER_PROPERTIES,
+      codeMode: true,
+    }));
     entries.push(createToolEntry({
       name: 'openchamber_workflow',
       description: WORKFLOW_TOOL_DESCRIPTION,

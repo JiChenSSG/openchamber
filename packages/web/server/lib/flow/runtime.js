@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 import { z } from 'zod';
-import { createRequirementSchema, nodeResults, NODE_INSTRUCTIONS, validateTickets } from './contracts.js';
+import { createRequirementSchema, nodeResults, NODE_INSTRUCTIONS, validateTickets, requirementIdSchema, requirementActionSchema } from './contracts.js';
 import { discoverSkills, getSkillSources } from '../opencode/skills.js';
 
 const MAX_ROUTER_CALLS = 256;
@@ -272,7 +272,33 @@ export const createFlowRuntime = ({ store, workflows, agentSessions, worktrees, 
     await active.get(id)?.promise;
     return required(id);
   };
-  return {
+  const runtime = {
+    async executeAction(action, input = {}, { directory } = {}) {
+      await assertEnabled();
+      try {
+        if (action === 'flow.list') return await runtime.list(z.string().trim().min(1).parse(input.directory ?? directory));
+        if (action === 'flow.create') return await runtime.create({
+          title: input.title, task: input.task, directory: input.directory ?? directory, runInWorktree: input.runInWorktree,
+        });
+        const id = requirementIdSchema.parse(input.requirementId);
+        switch (action) {
+          case 'flow.start': return await runtime.start(id);
+          case 'flow.stop': return await runtime.stop(id);
+          case 'flow.answer': {
+            const body = requirementActionSchema.parse({ revision: input.revision, answers: input.answers });
+            return await runtime.answer(id, z.array(z.string().trim().min(1)).min(1).parse(body.answers), body.revision);
+          }
+          case 'flow.accept': {
+            const body = requirementActionSchema.parse({ revision: input.revision, ticketId: input.ticketId });
+            return await runtime.accept(id, body.ticketId, body.revision);
+          }
+          default: throw failure(`Unsupported Flow action: ${action}`, 400);
+        }
+      } catch (error) {
+        if (error instanceof z.ZodError) throw failure(error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`).join('; ').slice(0, 2_000), 400);
+        throw error;
+      }
+    },
     async list(directory) { await restore(); return store.list(directory); },
     template: () => store.template(),
     setTemplate: (config) => store.setTemplate(config),
@@ -336,4 +362,5 @@ export const createFlowRuntime = ({ store, workflows, agentSessions, worktrees, 
       await store.flush();
     },
   };
+  return runtime;
 };

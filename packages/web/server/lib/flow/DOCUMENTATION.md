@@ -69,6 +69,15 @@ VS Code and both phone surfaces keep their existing UI; no board entry is
 injected. Phone clients can still answer questions and permissions in the
 existing session UI. No relay codec, auth or native bridge contract changes.
 
+The managed `openchamber_flow` tool exposes `flow.list`, `flow.create`,
+`flow.start`, `flow.stop`, `flow.answer` and `flow.accept` through Code Mode.
+List and create default to the caller's directory. Create captures the board
+template and creates a retained worktree by default. Start also resumes an
+interrupted requirement. Answers and acceptance require the latest revision;
+the agent submits only decisions the user has made. The tool shares the
+Workflows switch and checks it on every call, including stale plugin calls.
+Template editing remains in the board UI.
+
 ## Decisions
 
 ### Why persisted state is separate from Router context
@@ -82,3 +91,10 @@ an accumulating Router conversation. Server checks remain authoritative.
 Structured answers, session tracking, interruption and restart recovery already
 have one owner. Internal managed runs suppress owner-agent wakeups and can only
 be resumed through Flow; generic workflow actions cannot evade Ticket budgets.
+
+### Why the board tool shares the Workflows switch
+
+Board execution already depends on Workflows. One switch controls both tools,
+so enabling a board tool cannot imply that its execution runtime is available
+while Workflows is disabled. The board tool stays behind Code Mode because its
+calls update the existing board without drawing a chat card.

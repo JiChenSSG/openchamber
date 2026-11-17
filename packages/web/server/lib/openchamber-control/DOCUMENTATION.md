@@ -9,6 +9,9 @@ other.
 
 ## Boundaries
 
+- `flow.*` delegates to the board runtime (`../flow/DOCUMENTATION.md`), which
+  owns validation, the Workflows switch and lifecycle rules. The tool's caller
+  directory supplies the default list/create scope; an unavailable board is 503.
 - `service.js` validates and executes the fixed project, model, session, and
   scheduled-task action allowlist. `actions.js` marks CLI-only actions with
   `agentExposed: false` (currently `schedule.status`); the agent tool consumes

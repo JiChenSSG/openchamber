@@ -327,6 +327,7 @@ export const createOpenChamberControlService = (dependencies) => {
     // Agent workflows (../workflows/runtime.js); absent means the server
     // cannot offer them.
     workflowRuntime = null,
+    flowRuntime = null,
     // Archive lives in OpenChamber's own store now — v2 has no route that sets
     // Session.time.archived — so an unwired store simply means nothing is archived.
     archiveStore = null,
@@ -1259,6 +1260,10 @@ export const createOpenChamberControlService = (dependencies) => {
           sessionId: asNonEmptyString(options.contextSessionId),
           directory: asNonEmptyString(contextDirectory),
         });
+      }
+      if (action.startsWith('flow.')) {
+        if (!flowRuntime) throw new OpenChamberControlError('The task board is not available on this server', 503);
+        return await flowRuntime.executeAction(action, input, { directory: asNonEmptyString(contextDirectory) });
       }
       if (action === 'render.page') {
         return await renderPage(input, {

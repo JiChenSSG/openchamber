@@ -215,6 +215,19 @@ export const OPENCHAMBER_WORKFLOW_ACTIONS = Object.freeze(
   OPENCHAMBER_WORKFLOW_ACTION_DEFINITIONS.map(({ action }) => action),
 );
 
+export const OPENCHAMBER_FLOW_ACTION_DEFINITIONS = Object.freeze([
+  { action: 'flow.list', title: 'Read the task board', description: 'Requirements and their revisions, Tickets, questions, artifacts and errors in directory, defaulting to this session\'s directory' },
+  { action: 'flow.create', title: 'Create a board requirement', description: 'Create title and task in directory using the current board template. Creates an owner session and a retained worktree by default; execution starts only with flow.start' },
+  { action: 'flow.start', title: 'Run a board requirement', description: 'Start or continue requirementId in the background. Answer pending questions and accept ready Tickets before continuing; returns immediately' },
+  { action: 'flow.stop', title: 'Stop a board requirement', description: 'Interrupt requirementId and wait for its active node to settle; its workspace and checkpoints are retained' },
+  { action: 'flow.answer', title: 'Answer board questions', description: 'Submit answers in question order for requirementId with its latest revision. Does not restart execution' },
+  { action: 'flow.accept', title: 'Accept board work', description: 'Record the user\'s explicit acceptance of ticketId within requirementId, or the whole requirement when ticketId is omitted. Requires the latest revision; never publishes code' },
+]);
+
+export const OPENCHAMBER_FLOW_ACTIONS = Object.freeze(
+  OPENCHAMBER_FLOW_ACTION_DEFINITIONS.map(({ action }) => action),
+);
+
 /**
  * How a workflow agent asked for a schema answer hands it over. A tool of its
  * own: the managed config denies it in every session
@@ -254,6 +267,7 @@ const ACTIONS_BY_TOOL = Object.freeze({
   openchamber_secret: OPENCHAMBER_SECRET_ACTIONS,
   openchamber_usage: OPENCHAMBER_USAGE_ACTIONS,
   openchamber_workflow: OPENCHAMBER_WORKFLOW_ACTIONS,
+  openchamber_flow: OPENCHAMBER_FLOW_ACTIONS,
   [WORKFLOW_ANSWER_TOOL]: OPENCHAMBER_WORKFLOW_ANSWER_ACTIONS,
 });
 
@@ -308,5 +322,6 @@ export const OPENCHAMBER_ALL_ACTIONS = Object.freeze([
   ...OPENCHAMBER_SECRET_ACTIONS,
   ...OPENCHAMBER_USAGE_ACTIONS,
   ...OPENCHAMBER_WORKFLOW_ACTIONS,
+  ...OPENCHAMBER_FLOW_ACTIONS,
   ...OPENCHAMBER_WORKFLOW_ANSWER_ACTIONS,
 ]);

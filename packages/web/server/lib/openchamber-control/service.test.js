@@ -221,6 +221,11 @@ const createService = (overrides = {}) => {
 };
 
 describe('OpenChamber control service', () => {
+  it('reports an unavailable task board when this runtime does not provide one', async () => {
+    const { service } = createService();
+    await expect(service.execute('flow.list', {}, '/repo')).rejects.toMatchObject({ statusCode: 503 });
+  });
+
   it('creates a target task with inherited selection and accepts retargeting on update', async () => {
     const { service, scheduledTaskService } = createService();
     scheduledTaskService.upsert.mockImplementation(async (_project, task) => ({ task }));

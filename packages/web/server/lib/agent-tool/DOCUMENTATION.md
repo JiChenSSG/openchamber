@@ -124,6 +124,10 @@ the user can want independently:
   and only the session of such an agent allows it, so no other session carries
   its declaration. Direct, never behind Code Mode: the agent's prompt names it,
   and the sessions that see it are the ones that need it.
+- `openchamber_flow`: `flow.*`, the task board's requirement lifecycle
+  (`../flow/DOCUMENTATION.md`, *Surfaces*). Registered together with Workflows
+  while `agentWorkflowToolEnabled` is `true`; the Flow runtime checks that switch
+  on every tool call. It runs behind Code Mode and updates the existing board.
 
 Both default to on, are toggled in Settings → General → OpenChamber Tools, and take
 effect in the running OpenCode within a couple of seconds — OpenChamber rewrites
@@ -137,7 +141,8 @@ when OpenChamber launches and owns the OpenCode process, and not at all when
 both settings are `false`.
 
 - `openchamber`, `openchamber_schedule`, `openchamber_web`,
-  `openchamber_memory`, `openchamber_knowledge` and `openchamber_notify` are
+  `openchamber_memory`, `openchamber_knowledge`, `openchamber_notify` and
+  `openchamber_flow` are
   registered with `codemode: true`, behind OpenCode's Code Mode `execute`
   tool; there is no setting for it. On `scripts/tool-use-bench` with three
   models this cut the first request of a session by about 30% with the same or

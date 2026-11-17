@@ -70,6 +70,13 @@ export const createRequirementSchema = z.object({
   runInWorktree: z.boolean().default(true), config: templateSchema.optional(),
 }).strict();
 
+export const requirementIdSchema = z.string().regex(/^flw_[a-f0-9]{32}$/);
+export const requirementActionSchema = z.object({
+  revision: z.number().int().nonnegative(),
+  ticketId: z.string().trim().min(1).optional(),
+  answers: z.array(z.string().trim().min(1).max(8_000)).max(6).optional(),
+}).strict();
+
 export const validateTickets = (drafts) => {
   const ids = new Set(drafts.map((ticket) => ticket.id));
   if (ids.size !== drafts.length) throw new Error('Ticket identifiers must be unique');

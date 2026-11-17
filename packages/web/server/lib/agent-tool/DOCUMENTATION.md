@@ -128,6 +128,9 @@ the user can want independently:
   (`../flow/DOCUMENTATION.md`, *Surfaces*). Registered together with Workflows
   while `agentWorkflowToolEnabled` is `true`; the Flow runtime checks that switch
   on every tool call. It runs behind Code Mode and updates the existing board.
+  Its document actions read versioned requirement handoffs and save stage notes.
+  The control service preserves the calling session; Flow enforces ownership and
+  live-stage write access, so document IDs cannot widen that scope.
 
 Both default to on, are toggled in Settings → General → OpenChamber Tools, and take
 effect in the running OpenCode within a couple of seconds — OpenChamber rewrites

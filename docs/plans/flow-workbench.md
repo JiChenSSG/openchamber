@@ -11,9 +11,16 @@ them. The existing delivery workflow remains available.
 Each node captures its prompt, agent, model, variant and selected skills. Router
 calls contain a bounded state snapshot, no conversation history and no tools.
 Automatic clarification asks only blocking questions. Explicit deep clarification
-loads the grilling skill. Existing `to-spec` and `to-tickets` skills supply
-planning instructions. Flow overrides their external publishing and ticket
-confirmation steps: validated tickets enter the local board immediately.
+loads the grilling skill. Specification and Ticket planning ship with Flow and
+require no external skills. Extra skills and custom prompts supplement built-in
+planning. Validated tickets enter the local board immediately.
+
+Each requirement's owner session and stage child sessions share a versioned
+document library across all Tickets. Research, intermediate notes and validated
+node reports live in application data. Only a live stage child can write notes;
+validated node results confirm them atomically with the checkpoint. Drafts from
+failed or interrupted stages remain available as historical context. The board
+loads document bodies on demand and exposes each version's provenance.
 
 One requirement owns one retained worktree. Tickets execute serially in dependency
 order. Review checks acceptance, correctness, security and explicit project

@@ -18,9 +18,9 @@ Node settings edit the default template: instructions, agent, model, variant,
 skills, clarification mode and budgets. A new requirement can override it before
 creation. Existing requirements keep their captured configuration. The Router
 uses a separate one-shot model call with no conversation history; an empty model
-selection uses OpenChamber's Small Model. Spec and ticket nodes explicitly load
-`to-spec` and `to-tickets`; install those skills or choose replacements before
-starting. Their results remain in the local board, without tracker publication
+selection uses OpenChamber's Small Model. Specification and Ticket planning are
+built in and require no external skill installation. Custom instructions and
+extra skills can supplement planning. Results remain in the local board, without tracker publication
 or a ticket-breakdown confirmation step.
 
 Tickets appear automatically after their identifiers, acceptance and dependency
@@ -30,6 +30,11 @@ review, and survives resume. Optional improvements do not block delivery. Open a
 card to answer clarification questions and permissions directly, or inspect the
 specification, findings, evidence and routing log. Submitting board answers
 continues execution. Open session opens its current/latest node.
+
+Shared documents collects research, specifications and stage handoffs for the
+entire requirement, including all its Tickets. Open a version to read its text
+and source. Stage notes remain drafts until their producing node validates.
+The server retains document versions in application data, outside project source.
 
 Accept a finished Ticket to unblock its dependents, then Resume the requirement.
 After all Tickets are accepted, Resume performs integration verification and

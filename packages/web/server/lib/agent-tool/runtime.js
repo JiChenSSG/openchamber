@@ -363,6 +363,10 @@ const FLOW_PARAMETER_PROPERTIES = {
   revision: { type: 'integer', minimum: 0, description: 'flow.answer/accept: latest revision from flow.list; refresh after a conflict' },
   ticketId: { type: 'string', description: 'flow.accept: omit only for final requirement acceptance' },
   answers: { type: 'array', items: { type: 'string', minLength: 1, maxLength: 8000 }, minItems: 1, maxItems: 6 },
+  documentId: { type: 'string', description: 'Requirement-local document name: letters, digits, underscores or hyphens; result- is reserved for node reports' },
+  version: { type: 'integer', minimum: 0, description: 'Document read: optional version. Document write: latest version, or 0 for a new document' },
+  kind: { type: 'string', enum: ['research', 'clarification', 'spec', 'tickets', 'handoff', 'review', 'verification', 'release', 'note'] },
+  content: { type: 'string', maxLength: 64000, description: 'Document text, stored in the shared requirement library outside project source' },
 };
 
 // A JSON object, not JSON text in a string: text made models escape JSON

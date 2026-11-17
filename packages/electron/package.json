@@ -1,6 +1,6 @@
 {
   "name": "@openchamber/electron",
-  "version": "2.7.1",
+  "version": "2.7.2",
   "private": true,
   "description": "openflow desktop automation workbench, based on OpenChamber",
   "author": "JiChenSSG",

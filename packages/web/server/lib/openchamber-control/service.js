@@ -1263,7 +1263,9 @@ export const createOpenChamberControlService = (dependencies) => {
       }
       if (action.startsWith('flow.')) {
         if (!flowRuntime) throw new OpenChamberControlError('The task board is not available on this server', 503);
-        return await flowRuntime.executeAction(action, input, { directory: asNonEmptyString(contextDirectory) });
+        return await flowRuntime.executeAction(action, input, {
+          directory: asNonEmptyString(contextDirectory), sessionId: asNonEmptyString(options.contextSessionId),
+        });
       }
       if (action === 'render.page') {
         return await renderPage(input, {

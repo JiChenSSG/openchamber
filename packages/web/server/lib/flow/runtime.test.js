@@ -14,7 +14,7 @@ const ticket = (id, blockedBy = []) => ({ id, title: id, description: `Deliver $
 const cleanReview = { ...notes, complete: true, findings: [], suggestions: ['Optional improvement'] };
 const issue = { file: 'module.js:5', scenario: 'Normal input', cause: 'Incorrect output', fix: 'Correct the output' };
 
-const harness = async ({ results = {}, resultFactories = {}, limit = 3, decisions, fsImpl = fs, isEnabled = async () => true, runStep, generate, worktrees } = {}) => {
+const harness = async ({ results = {}, resultFactories = {}, limit = 3, decisions, fsImpl = fs, isEnabled = async () => true, runStep, generate, worktrees, duringNode } = {}) => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'flow-runtime-'));
   roots.push(root);
   const store = createFlowStore({ fsPromises: fsImpl, path, dataDir: root });
@@ -22,12 +22,18 @@ const harness = async ({ results = {}, resultFactories = {}, limit = 3, decision
   const sessions = [];
   const completed = new Map();
   const routerInputs = [];
-  const workflows = { async runStep(input) {
+  const liveSessions = new Map();
+  const workflows = { isAgentRunning: (runId, sessionId) => liveSessions.get(runId) === sessionId, async runStep(input) {
     if (input.runId && completed.has(input.runId)) return completed.get(input.runId);
     calls.push({ node: input.options.label.split(':')[0], model: input.options.model, skills: input.options.skills });
     await input.onRun(`wf_fixture${calls.length}`);
     await input.onStart();
     const node = calls.at(-1).node;
+    const runId = `wf_fixture${calls.length}`;
+    const sessionId = `child-${calls.length}`;
+    liveSessions.set(runId, sessionId);
+    try { await duringNode?.({ ...input, node, sessionId }); }
+    finally { liveSessions.delete(runId); }
     const result = resultFactories[node]?.(calls.filter((entry) => entry.node === node).length) ?? results[node];
     const output = { runId: `wf_fixture${calls.length}`, result: result ?? ({ spec, tickets: { ...notes, tickets: [ticket('T1')] }, review: cleanReview, verify: cleanReview }[node] ?? notes) };
     completed.set(output.runId, output);
@@ -57,6 +63,142 @@ const harness = async ({ results = {}, resultFactories = {}, limit = 3, decision
 };
 
 describe('Flow task delivery', () => {
+  it('uses built-in planning for saved skill selections while retaining custom additions', async () => {
+    const { runtime } = await harness();
+    const config = defaultTemplate();
+    config.nodes.spec.skills = ['to-spec', 'project-rules'];
+    config.nodes.tickets.skills = ['to-tickets'];
+    config.nodes.spec.prompt = 'Include the project accessibility requirements';
+    const record = await runtime.create({ directory: '/fixture', title: 'Planning', task: 'Add a greeting', config });
+    expect(record.config.nodes.spec).toMatchObject({ skills: ['project-rules'], prompt: 'Include the project accessibility requirements' });
+    expect(record.config.nodes.tickets.skills).toEqual([]);
+    expect((await runtime.template()).nodes.spec.skills).toEqual([]);
+  });
+
+  it('shares confirmed handoffs across Tickets and restores every version without board document bodies', async () => {
+    let runtime;
+    let requirementId;
+    let consumed;
+    const fixture = await harness({
+      results: { tickets: { ...notes, tickets: [ticket('T1'), ticket('T2', ['T1'])] } },
+      duringNode: async ({ node, options, sessionId }) => {
+        if (node !== 'develop') return;
+        if (options.label === 'develop: T2') {
+          consumed = await runtime.executeAction('flow.document.read', { requirementId, documentId: 'implementation-notes' }, { sessionId });
+          return;
+        }
+        const write = (version, content) => runtime.executeAction('flow.document.write', {
+          requirementId, documentId: 'implementation-notes', version, title: 'Implementation notes', kind: 'handoff', content,
+        }, { sessionId });
+        await write(0, '\nFirst implementation findings\n');
+        await write(1, 'Confirmed API behavior for the dependent Ticket');
+        await expect(write(1, 'A stale overwrite')).rejects.toMatchObject({ statusCode: 409 });
+      },
+    });
+    ({ runtime } = fixture);
+    requirementId = fixture.requirement.id;
+    await runtime.start(requirementId);
+    let record = await runtime.waitForIdle(requirementId);
+    await runtime.accept(requirementId, 'T1', record.revision);
+    await runtime.start(requirementId);
+    record = await runtime.waitForIdle(requirementId);
+    expect(consumed).toMatchObject({ version: 2, status: 'confirmed', ticketId: 'T1', node: 'develop', content: 'Confirmed API behavior for the dependent Ticket' });
+    expect(record.tickets.find((entry) => entry.id === 'T2').state).toBe('acceptance');
+    const reopened = fixture.reopen();
+    const metadata = (await reopened.documents(requirementId)).documents;
+    expect(metadata.filter((entry) => entry.id === 'implementation-notes')).toMatchObject([{ version: 1 }, { version: 2 }]);
+    expect(metadata.every((entry) => !('content' in entry))).toBe(true);
+    expect(await reopened.document(requirementId, { documentId: 'implementation-notes', version: 1 })).toMatchObject({ content: '\nFirst implementation findings\n' });
+    expect(metadata.filter((entry) => entry.id === 'result-develop-T1')).toHaveLength(1);
+    expect((await reopened.list('/fixture')).requirements[0].documents.every((entry) => !('content' in entry))).toBe(true);
+  });
+
+  it('loads a legacy requirement without documents and resolves its shipped planning default locally', async () => {
+    const { requirement, root, reopen } = await harness();
+    const legacy = structuredClone(requirement);
+    delete legacy.documents;
+    legacy.config.nodes.spec.skills = ['to-spec'];
+    legacy.config.nodes.tickets.skills = ['to-tickets'];
+    legacy.config.nodes.spec.prompt = 'Use the selected to-spec skill to produce a specification from the task, research and confirmed decisions. Include scope, non-goals, user behavior and verifiable acceptance. Return the specification as content. Flow uses its local board as tracker: do not publish externally or modify project files.';
+    await fs.writeFile(path.join(root, 'flow', `${legacy.id}.json`), JSON.stringify(legacy));
+    const board = await reopen().list('/fixture');
+    expect(board.errors).toEqual([]);
+    expect(board.requirements[0].documents).toEqual([]);
+    expect(board.requirements[0].config.nodes.spec.skills).toEqual([]);
+    expect(board.requirements[0].config.nodes.tickets.skills).toEqual([]);
+    expect(board.requirements[0].config.nodes.spec.prompt).not.toContain('selected to-spec skill');
+  });
+
+  it('replays a completed node after an archive write failure without duplicating its report', async () => {
+    let failWrite = false;
+    const fixture = await harness({
+      fsImpl: { ...fs, rename: async (...args) => { if (failWrite) throw new Error('disk unavailable'); return fs.rename(...args); } },
+      duringNode: async ({ node }) => { if (node === 'spec') failWrite = true; },
+    });
+    const id = fixture.requirement.id;
+    await fixture.runtime.start(id);
+    await fixture.runtime.waitForIdle(id);
+    expect((await fixture.store.get(id)).documents).toEqual([]);
+    failWrite = false;
+    const restored = fixture.reopen();
+    await restored.start(id);
+    await restored.waitForIdle(id);
+    const reports = (await restored.documents(id)).documents.filter((entry) => entry.id === 'result-spec-requirement');
+    expect(reports).toHaveLength(1);
+    expect(reports[0]).toMatchObject({ version: 1, status: 'confirmed' });
+    expect(fixture.calls.filter((entry) => entry.node === 'spec')).toHaveLength(1);
+  });
+
+  it('rejects unrelated sessions, expired stages, owner writes and reserved document names', async () => {
+    let runtime;
+    let id;
+    let otherId;
+    let endedSession;
+    const fixture = await harness({ duringNode: async ({ node, sessionId }) => {
+      if (node !== 'spec') return;
+      endedSession = sessionId;
+      await expect(runtime.executeAction('flow.document.list', { requirementId: otherId }, { sessionId })).rejects.toMatchObject({ statusCode: 403 });
+      await expect(runtime.executeAction('flow.document.write', { requirementId: id, documentId: 'result-spec-requirement', version: 0, title: 'Forged report', kind: 'spec', content: 'Forged' }, { sessionId })).rejects.toMatchObject({ statusCode: 400 });
+      await expect(runtime.executeAction('flow.document.read', { requirementId: id, documentId: '../escape' }, { sessionId })).rejects.toMatchObject({ statusCode: 400 });
+      await expect(runtime.executeAction('flow.document.write', { requirementId: id, documentId: 'oversize', version: 0, title: 'Oversize', kind: 'note', content: 'x'.repeat(64_001) }, { sessionId })).rejects.toMatchObject({ statusCode: 400 });
+    } });
+    ({ runtime } = fixture);
+    id = fixture.requirement.id;
+    otherId = (await runtime.create({ directory: '/other', title: 'Other', task: 'Other requirement' })).id;
+    await expect(runtime.executeAction('flow.document.list', { requirementId: id }, { sessionId: 'unrelated' })).rejects.toMatchObject({ statusCode: 403 });
+    await expect(runtime.executeAction('flow.document.write', { requirementId: id }, { sessionId: fixture.requirement.sessionId })).rejects.toMatchObject({ statusCode: 403 });
+    await runtime.start(id);
+    await runtime.waitForIdle(id);
+    await expect(runtime.executeAction('flow.document.list', { requirementId: id }, { sessionId: endedSession })).rejects.toMatchObject({ statusCode: 403 });
+    expect((await runtime.executeAction('flow.document.list', { requirementId: id }, { sessionId: fixture.requirement.sessionId })).documents.length).toBeGreaterThan(0);
+  });
+
+  it('retains failed-stage notes as drafts and never replaces them with a failed write', async () => {
+    let runtime;
+    let id;
+    let failWrite = false;
+    const fixture = await harness({
+      fsImpl: { ...fs, rename: async (...args) => { if (failWrite) throw new Error('disk unavailable'); return fs.rename(...args); } },
+      results: { spec: { ...spec, evidence: [] } },
+      duringNode: async ({ node, sessionId }) => {
+        if (node !== 'spec') return;
+        const input = { requirementId: id, documentId: 'research-notes', version: 0, title: 'Research notes', kind: 'research', content: 'Observed project facts' };
+        await runtime.executeAction('flow.document.write', input, { sessionId });
+        failWrite = true;
+        try { await expect(runtime.executeAction('flow.document.write', { ...input, version: 1, content: 'Uncommitted replacement' }, { sessionId })).rejects.toThrow('disk unavailable'); }
+        finally { failWrite = false; }
+      },
+    });
+    ({ runtime } = fixture);
+    id = fixture.requirement.id;
+    await runtime.start(id);
+    const record = await runtime.waitForIdle(id);
+    expect(record.state).toBe('attention');
+    expect(record.documents).toMatchObject([{ id: 'research-notes', version: 1, status: 'draft', content: 'Observed project facts' }]);
+    expect(await fixture.reopen().document(id, { documentId: 'research-notes' })).toMatchObject({ version: 1, status: 'draft', content: 'Observed project facts' });
+    await expect(runtime.document(id, { documentId: 'result-spec-requirement' })).rejects.toMatchObject({ statusCode: 404 });
+  });
+
   it('generates a title and goal from a description while retaining the original request across restart', async () => {
     const { runtime, reopen } = await harness({ generate: async () => ({ text: JSON.stringify({ title: 'Greeting file', goal: 'Create greeting.txt with exactly Hello flow.' }) }) });
     const task = 'Please create greeting.txt containing exactly Hello flow. Keep the README unchanged.';
@@ -180,7 +322,7 @@ describe('Flow task delivery', () => {
     expect(state.tickets.map((entry) => entry.state)).toEqual(['acceptance', 'todo']);
     expect(calls.map((entry) => entry.node)).toEqual(['spec', 'tickets', 'develop', 'review']);
     expect(calls.at(-1)).toMatchObject({ model: 'fixture/reviewer#fast' });
-    expect(calls.find((entry) => entry.node === 'tickets').skills).toEqual(['to-tickets']);
+    expect(calls.find((entry) => entry.node === 'tickets').skills).toEqual([]);
     const firstInput = JSON.parse(routerInputs[0].prompt);
     expect(firstInput).not.toHaveProperty('history');
     state = await runtime.accept(state.id, 'T1', state.revision);

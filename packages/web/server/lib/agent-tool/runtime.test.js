@@ -506,6 +506,7 @@ describe('managed agent tool runtime', () => {
 
     expect(tools.openchamber_flow.input.properties.action.enum).toEqual([
       'flow.list', 'flow.create', 'flow.start', 'flow.stop', 'flow.answer', 'flow.accept',
+      'flow.document.list', 'flow.document.read', 'flow.document.write',
     ]);
     expect(tools.openchamber_flow.options).toEqual({ codemode: true });
     expect(namespaces).toContainEqual(expect.objectContaining({ name: 'openchamber_flow' }));
@@ -552,14 +553,17 @@ describe('managed agent tool runtime', () => {
     const originalToken = process.env.OPENCHAMBER_AGENT_TOOL_TOKEN;
     process.env.OPENCHAMBER_AGENT_TOOL_URL = `http://127.0.0.1:${server.address().port}/api/openchamber/agent-tool`;
     process.env.OPENCHAMBER_AGENT_TOOL_TOKEN = prepared.OPENCHAMBER_AGENT_TOOL_TOKEN;
-    const call = async (action, parameters = {}) => JSON.parse((await tools.openchamber_flow.execute(
-      { action, parameters }, { sessionID: 'ses_caller', progress: async () => {} },
+    const call = async (action, parameters = {}, sessionId = 'ses_caller') => JSON.parse((await tools.openchamber_flow.execute(
+      { action, parameters }, { sessionID: sessionId, progress: async () => {} },
     )).content);
     try {
       const created = await call('create', { title: 'Board task', task: 'Deliver the requested behavior' });
       expect(created).toMatchObject({ ok: true, action: 'flow.create', data: { directory, workspace: '/repo-worktree', state: 'todo', revision: 0, sessionId: 'ses_board_owner' } });
       expect(await call('list')).toMatchObject({ ok: true, data: { requirements: [expect.objectContaining({ id: created.data.id, task: 'Deliver the requested behavior' })] } });
       expect(await call('list', { directory: '/other' })).toMatchObject({ ok: true, data: { requirements: [] } });
+      expect(await call('document.list', { requirementId: created.data.id }, 'ses_board_owner')).toMatchObject({ ok: true, data: { documents: [] } });
+      expect(await call('document.list', { requirementId: created.data.id })).toMatchObject({ ok: false });
+      expect(await call('document.write', { requirementId: created.data.id }, 'ses_board_owner')).toMatchObject({ ok: false });
       expect(await call('start', { requirementId: 'invalid' })).toMatchObject({ ok: false, error: { kind: 'usage' } });
       enabled = false;
       expect(await call('create', { title: 'Disabled', task: 'Must not create' })).toMatchObject({ ok: false, error: { kind: 'usage', message: expect.stringContaining('Enable Workflows') } });

@@ -12,6 +12,9 @@ other.
 - `flow.*` delegates to the board runtime (`../flow/DOCUMENTATION.md`), which
   owns validation, the Workflows switch and lifecycle rules. The tool's caller
   directory supplies the default list/create scope; an unavailable board is 503.
+  Document actions also pass the authenticated calling session. Flow authorizes
+  requirement ownership and active-stage writes; a caller-supplied requirement ID
+  alone grants no document access.
 - `service.js` validates and executes the fixed project, model, session, and
   scheduled-task action allowlist. `actions.js` marks CLI-only actions with
   `agentExposed: false` (currently `schedule.status`); the agent tool consumes

@@ -29,9 +29,11 @@ no provider connection and never publishes code or external tracker issues.
 - Every node result includes factual evidence. Clarification and planning can
   cite task facts or confirmed decisions; implementation, Review and verification
   cite inspected files or checks actually run. Empty evidence remains invalid.
-- `to-spec` and `to-tickets` are explicitly attached skills. Flow replaces their
-  tracker publishing and ticket-confirmation steps with a structured local
-  result. All ticket identifiers and blocking edges are validated before any
+- Specification and Ticket planning use app-owned instructions without external
+  skills. Custom prompts supplement the built-in planning contract. Saved
+  `to-spec`/`to-tickets` selections resolve to these built-ins; exact shipped
+  legacy prompts normalize on read, while custom prompts and extra skills stay.
+  All ticket identifiers and blocking edges are validated before any
   ticket becomes visible. A replay reconciles the linked node before applying
   the result; it cannot append duplicate tickets.
 - One requirement owns a retained worktree; Tickets run serially. Failed
@@ -67,6 +69,26 @@ Malformed files are retained and reported, never replaced by an empty success;
 unrelated valid records remain available. Stale user mutations receive 409.
 There is no automatic retention deletion.
 
+Each requirement owns a shared document library in the same atomic JSON file.
+All Tickets and stage child sessions use that library. Versioned document bodies
+and node results commit together with the requirement checkpoint; failed writes
+publish neither. Project source directories receive no library files. Documents
+record their node, Ticket, run, writing session and version. Automatic reports
+use reserved `result-` names and their run ID makes replay idempotent.
+
+Only a live stage child may write notes, checked again inside the serialized
+mutation. Owner sessions can read; unrelated or expired sessions cannot. Note
+writes require the last document version, with 0 for a new name. A validated
+node result confirms its notes in the same commit. Failed or interrupted notes
+remain drafts; confirmed means a schema-valid source report, not user acceptance
+or proof that a model's claims are true. Document contents cannot grant permissions.
+Read a specific version to retain a confirmed handoff when a later draft exists.
+
+The library keeps up to 512 versions, 128 distinct names and 8 MiB of serialized
+UTF-8 data. Notes are at most 64,000 characters; automatic reports at most 128,000.
+Capacity failure pauses visibly and retains every prior version. Older records
+without a library load with an empty one; their inline artifacts stay available.
+
 Node links are saved before approval. A crash after linking can leave an
 awaiting-approval run that resume starts once; a completed run is replayed
 without a new agent. A crash between Review reservation and dispatch can consume
@@ -85,7 +107,12 @@ injected. Phone clients can still answer questions and permissions in the
 existing session UI. No relay codec, auth or native bridge contract changes.
 
 The managed `openchamber_flow` tool exposes `flow.list`, `flow.create`,
-`flow.start`, `flow.stop`, `flow.answer` and `flow.accept` through Code Mode.
+`flow.start`, `flow.stop`, `flow.answer`, `flow.accept` and `flow.document.*`
+through Code Mode. Document list/read/write use the authenticated calling session;
+provenance comes from the active node rather than agent-supplied source fields.
+Board refreshes and document listings carry metadata only. Document text loads
+on demand through authenticated routes. Stage prompts include the latest-version
+directory beside their existing structured context.
 List and create default to the caller's directory. Create captures the board
 template and creates a retained worktree by default. Start also resumes an
 interrupted requirement. Answers and acceptance require the latest revision;
@@ -94,6 +121,19 @@ Workflows switch and checks it on every call, including stale plugin calls.
 Template editing remains in the board UI.
 
 ## Decisions
+
+### Why planning ships with Flow
+
+The default planning path must work without user-installed skills. App-owned
+instructions define specification and Ticket contracts; optional skills can add
+project guidance without replacing graph validation or acceptance gates.
+
+### Why documents commit with the requirement
+
+One atomic snapshot keeps confirmed handoffs and stage checkpoints consistent
+across retries, write failures and restart. Separate document files would require
+cross-file recovery for the same guarantee. The library has explicit size limits
+and never drops old versions to admit a new one.
 
 ### Why intake keeps the original description
 

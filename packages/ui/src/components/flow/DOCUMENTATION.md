@@ -27,6 +27,11 @@ through `lib/flow/api.ts`; it does not call providers or privileged shell APIs.
   subtree forms and permissions inline. The existing form and permission cards
   own replies.
   Board answer submission requests resume; native form replies resume their turn.
+- Shared documents belong to the selected requirement across all its Tickets.
+  The list shows every version and its draft/confirmed state. Bodies load only
+  when selected, as plain text with source node and run. Closing the section or
+  changing requirement/runtime cancels the read; late responses are discarded.
+  Loading or failed reads never appear as an empty library.
 
 ## Decisions
 

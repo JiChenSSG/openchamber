@@ -1055,5 +1055,9 @@ export const createWorkflowRuntime = ({
     }
   };
 
-  return { executeAction, approve, decline, stop, resume, remove, list, listByDirectory, listSaved, startSaved, runStep, detail, agentDetail, start, deliverPending, shutdown };
+  const isAgentRunning = (runId, sessionId) => {
+    const execution = active.get(runId);
+    return !!execution && !execution.controller.signal.aborted && execution.sessions.has(sessionId);
+  };
+  return { executeAction, approve, decline, stop, resume, remove, list, listByDirectory, listSaved, startSaved, runStep, detail, agentDetail, start, deliverPending, shutdown, isAgentRunning };
 };

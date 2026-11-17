@@ -111,17 +111,24 @@ const script = (body, phases = "['Work']") => `export const meta = { name: 'test
 describe('server-owned Flow nodes', () => {
   it('checkpoints the node before dispatch, reuses its completed answer and never wakes its owner', async () => {
     let linked = false;
+    let linkedRunId;
     let starts = 0;
-    const sessions = fakeAgentSessions({ answer: () => '{"summary":"verified"}', duringTurn: async () => { expect(linked).toBe(true); } });
+    const sessions = fakeAgentSessions({ answer: () => '{"summary":"verified"}', duringTurn: async (sessionId) => {
+      expect(linked).toBe(true);
+      expect(runtime.isAgentRunning(linkedRunId, sessionId)).toBe(true);
+      expect(runtime.isAgentRunning(linkedRunId, 'ses_parent')).toBe(false);
+      expect(runtime.isAgentRunning('wf_other', sessionId)).toBe(false);
+    } });
     const { runtime, dataDir } = await setup(sessions);
     const input = {
       directory: dataDir, sessionId: 'ses_parent', prompt: 'Do one piece',
       options: { schema: { type: 'object', required: ['summary'], properties: { summary: { type: 'string' } } }, skills: ['to-spec'] },
       signal: new AbortController().signal,
-      onRun: async () => { linked = true; }, onStart: async () => { starts += 1; },
+      onRun: async (runId) => { linked = true; linkedRunId = runId; }, onStart: async () => { starts += 1; },
     };
     const completed = await runtime.runStep(input);
     expect(completed.result).toEqual({ summary: 'verified' });
+    expect(runtime.isAgentRunning(completed.runId, 'ses_agent1')).toBe(false);
     expect((await runtime.runStep({ ...input, runId: completed.runId })).result).toEqual({ summary: 'verified' });
     expect(starts).toBe(1);
     expect(sessions.started).toHaveLength(1);

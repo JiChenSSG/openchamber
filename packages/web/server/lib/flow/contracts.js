@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { PLANNING_INSTRUCTIONS, normalizePlanningTemplate } from './planning.js';
 
 const text = z.string().trim().min(1);
 const evidence = z.array(text).min(1).max(50);
@@ -15,11 +16,9 @@ export const templateSchema = z.object({
   maxTicketMinutes: z.number().int().min(1).max(480).default(60),
   clarification: z.enum(['auto', 'deep', 'skip']).default('auto'),
   nodes: z.object(Object.fromEntries(FLOW_NODES.map((node) => [node, nodeConfig.prefault({})]))).prefault({}),
-}).strict();
+}).strict().transform(normalizePlanningTemplate);
 export const defaultTemplate = () => {
   const template = templateSchema.parse({});
-  template.nodes.spec.skills = ['to-spec'];
-  template.nodes.tickets.skills = ['to-tickets'];
   for (const node of FLOW_NODES) {
     if (node !== 'router') template.nodes[node].prompt = NODE_INSTRUCTIONS[node];
   }
@@ -49,11 +48,29 @@ const ticketSchema = ticketDraft.extend({
   lastReviewEvidence: z.string().nullable().default(null),
   development: notesSchema.nullable(), review: reviewSchema.nullable(),
 });
+const documentIdSchema = z.string().regex(/^[A-Za-z][A-Za-z0-9_-]{0,95}$/);
+const documentKindSchema = z.enum(['research', 'clarification', 'spec', 'tickets', 'handoff', 'review', 'verification', 'release', 'note']);
+const documentSchema = z.object({
+  id: documentIdSchema, version: z.number().int().positive(), title: text.max(240), kind: documentKindSchema,
+  content: z.string().min(1).max(128_000).refine((value) => value.trim().length > 0), status: z.enum(['draft', 'confirmed']),
+  node: z.enum(FLOW_NODES).exclude(['router']), ticketId: z.string().nullable(), runId: text, sessionId: text.nullable(), createdAt: z.number(),
+}).strict();
+export const documentWriteSchema = z.object({
+  documentId: documentIdSchema.refine((id) => !id.startsWith('result-'), 'result- is reserved for node reports'),
+  version: z.number().int().nonnegative(), title: text.max(240), kind: documentKindSchema, content: z.string().min(1).max(64_000).refine((value) => value.trim().length > 0),
+}).strict();
+export const documentReadSchema = z.object({ documentId: documentIdSchema, version: z.number().int().positive().optional() }).strict();
+const documentsSchema = z.array(documentSchema).max(512).default([]).superRefine((documents, context) => {
+  if (new Set(documents.map((document) => document.id)).size > 128 || Buffer.byteLength(JSON.stringify(documents), 'utf8') > 8 * 1024 * 1024) {
+    context.addIssue({ code: 'custom', message: 'Requirement document library is full; existing versions are retained' });
+  }
+});
 export const requirementSchema = z.object({
   version: z.literal(1), id: z.string().regex(/^flw_[a-f0-9]{32}$/), revision: z.number().int().nonnegative(),
   title: text.max(240), task: text.max(20_000), goal: text.max(12_000).optional(), directory: text, workspace: text, sessionId: text,
   state: z.enum(['todo', 'running', 'attention', 'acceptance', 'done']),
   config: templateSchema, createdAt: z.number(), updatedAt: z.number(),
+  documents: documentsSchema,
   artifacts: z.object({
     research: nodeResults.research.optional(), clarify: nodeResults.clarify.optional(), spec: nodeResults.spec.optional(),
     tickets: nodeResults.tickets.optional(), verify: nodeResults.verify.optional(), release: nodeResults.release.optional(),
@@ -99,8 +116,7 @@ export const validateTickets = (drafts) => {
 export const NODE_INSTRUCTIONS = {
   research: 'Inspect project instructions and relevant code. Report verified facts and unresolved decisions. Keep project files unchanged.',
   clarify: 'Ask only unresolved decisions that materially affect scope, behavior, acceptance or safety. Research discoverable facts yourself. Return up to six questions in the structured report, then stop. Do not repeat answered questions. If the inputs are sufficient, return no questions. Keep project files unchanged.',
-  spec: 'Use the selected to-spec skill to produce a specification from the task, research and confirmed decisions. Include scope, non-goals, user behavior and verifiable acceptance. Return the specification as content. Flow uses its local board as tracker: do not publish externally or modify project files.',
-  tickets: 'Use the selected to-tickets skill to split the specification into small, independently verifiable vertical slices. Include acceptance and true blocking edges. Return stable unique ticket identifiers. Flow explicitly overrides the skill ticket-confirmation and publishing steps: return the structured tickets immediately, without asking for breakdown approval or publishing externally. The host adds them to the local board.',
+  ...PLANNING_INSTRUCTIONS,
   develop: 'Complete this Ticket with the smallest clear implementation satisfying its acceptance and existing project requirements. Reuse existing mechanisms. Address the blocking Review findings. Do not add speculative abstractions, compatibility layers, retries or fallback code. Error handling must correspond to realistic failure paths; retain necessary input, permission and data-integrity checks. Do not swallow failures or expand scope. Run relevant validation and report actual evidence. Leave code in this worktree.',
   review: 'Review the actual implementation against this Ticket, its acceptance, non-goals and explicit project requirements. Block only unmet acceptance, demonstrable correctness regressions, security/permission/data-integrity risks, or material violations of explicit requirements. Each finding needs a triggering supported scenario, consequence, code evidence and minimal fix. Do not turn guesses into defects. Do not demand speculative defensive code, abstractions, configuration, compatibility, unrelated refactors or personal style changes. Put nonblocking improvements in suggestions. Recheck unresolved findings and regressions introduced by their fixes; do not repeat resolved findings or raise the acceptance bar. Set complete only after actually reviewing. Return no findings once the goal is met. Keep project files unchanged.',
   verify: 'Verify the completed Tickets together against the entire Spec and its acceptance. Use actual code and validation evidence. Report only concrete blocking integration or acceptance defects; put optional improvements in suggestions. Do not expand scope or pursue perfection. Set complete only when verification was performed. Keep project files unchanged.',

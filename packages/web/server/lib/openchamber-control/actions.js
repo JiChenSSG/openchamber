@@ -222,6 +222,9 @@ export const OPENCHAMBER_FLOW_ACTION_DEFINITIONS = Object.freeze([
   { action: 'flow.stop', title: 'Stop a board requirement', description: 'Interrupt requirementId and wait for its active node to settle; its workspace and checkpoints are retained' },
   { action: 'flow.answer', title: 'Answer board questions', description: 'Submit answers in question order for requirementId with its latest revision. Does not restart execution' },
   { action: 'flow.accept', title: 'Accept board work', description: 'Record the user\'s explicit acceptance of ticketId within requirementId, or the whole requirement when ticketId is omitted. Requires the latest revision; never publishes code' },
+  { action: 'flow.document.list', title: 'List requirement documents', description: 'Read all document versions and provenance in requirementId. Available to its owner session and active stage child sessions' },
+  { action: 'flow.document.read', title: 'Read a requirement document', description: 'Read documentId in requirementId, optionally at version; omitted version reads the latest. Drafts are not confirmed handoffs' },
+  { action: 'flow.document.write', title: 'Save a requirement document', description: 'Save research or handoff content under documentId with its latest version, or version 0 for a new document. Only an active stage child may write. The server records provenance and confirms drafts when the stage result validates' },
 ]);
 
 export const OPENCHAMBER_FLOW_ACTIONS = Object.freeze(

@@ -1,6 +1,7 @@
 /** Flow workbench labels. Agent-produced specifications and evidence remain verbatim. */
 export const flowI18n = {
   en: {
+    'flow.documents.title': 'Shared documents', 'flow.documents.empty': 'No documents yet', 'flow.documents.version': 'Version {version}', 'flow.documents.draft': 'Draft', 'flow.documents.confirmed': 'Confirmed', 'flow.documents.loading': 'Loading document',
     'flow.description': 'Describe the problem',
     'flow.title': 'Task board', 'flow.new': 'New requirement', 'flow.name': 'Title', 'flow.goal': 'Goal and acceptance',
     'flow.settings': 'Node settings', 'flow.save': 'Save template', 'flow.create': 'Create', 'flow.default': 'Inherit default',
@@ -14,6 +15,7 @@ export const flowI18n = {
     'flow.node.spec': 'Write specification', 'flow.node.tickets': 'Split tickets', 'flow.node.develop': 'Develop', 'flow.node.review': 'Review', 'flow.node.verify': 'Verify integration', 'flow.node.release': 'Prepare delivery',
   },
   de: {
+    'flow.documents.title': 'Gemeinsame Dokumente', 'flow.documents.empty': 'Noch keine Dokumente', 'flow.documents.version': 'Fassung {version}', 'flow.documents.draft': 'Entwurf', 'flow.documents.confirmed': 'Bestätigt', 'flow.documents.loading': 'Dokument wird geladen',
     'flow.description': 'Problem beschreiben',
     'flow.title': 'Aufgabenboard', 'flow.new': 'Neue Anforderung', 'flow.name': 'Titel', 'flow.goal': 'Ziel und Abnahmekriterien',
     'flow.settings': 'Knoteneinstellungen', 'flow.save': 'Vorlage speichern', 'flow.create': 'Erstellen', 'flow.default': 'Standard übernehmen',
@@ -26,6 +28,7 @@ export const flowI18n = {
     'flow.node.tickets': 'Tickets aufteilen', 'flow.node.develop': 'Entwickeln', 'flow.node.review': 'Prüfen', 'flow.node.verify': 'Integration prüfen', 'flow.node.release': 'Übergabe vorbereiten',
   },
   fr: {
+    'flow.documents.title': 'Documents partagés', 'flow.documents.empty': 'Aucun document', 'flow.documents.version': 'Version n° {version}', 'flow.documents.draft': 'Brouillon', 'flow.documents.confirmed': 'Confirmé', 'flow.documents.loading': 'Chargement du document',
     'flow.description': 'Décrire le problème',
     'flow.title': 'Tableau des tâches', 'flow.new': 'Nouveau besoin', 'flow.name': 'Titre', 'flow.goal': "Objectif et critères d'acceptation",
     'flow.settings': 'Réglages des étapes', 'flow.save': 'Enregistrer le modèle', 'flow.create': 'Créer', 'flow.default': 'Hériter du réglage par défaut',
@@ -38,6 +41,7 @@ export const flowI18n = {
     'flow.node.tickets': 'Découper les tickets', 'flow.node.develop': 'Développer', 'flow.node.review': 'Examiner', 'flow.node.verify': "Vérifier l'intégration", 'flow.node.release': 'Préparer la livraison',
   },
   nl: {
+    'flow.documents.title': 'Gedeelde documenten', 'flow.documents.empty': 'Nog geen documenten', 'flow.documents.version': 'Versie {version}', 'flow.documents.draft': 'Concept', 'flow.documents.confirmed': 'Bevestigd', 'flow.documents.loading': 'Document laden',
     'flow.description': 'Beschrijf het probleem',
     'flow.title': 'Takenbord', 'flow.new': 'Nieuwe vereiste', 'flow.name': 'Titel', 'flow.goal': 'Doel en acceptatiecriteria',
     'flow.settings': 'Stapinstellingen', 'flow.save': 'Sjabloon opslaan', 'flow.create': 'Aanmaken', 'flow.default': 'Standaard overnemen',
@@ -50,6 +54,7 @@ export const flowI18n = {
     'flow.node.tickets': 'Tickets opsplitsen', 'flow.node.develop': 'Ontwikkelen', 'flow.node.review': 'Beoordelen', 'flow.node.verify': 'Integratie controleren', 'flow.node.release': 'Oplevering voorbereiden',
   },
   es: {
+    'flow.documents.title': 'Documentos compartidos', 'flow.documents.empty': 'Aún no hay documentos', 'flow.documents.version': 'Versión {version}', 'flow.documents.draft': 'Borrador', 'flow.documents.confirmed': 'Confirmado', 'flow.documents.loading': 'Cargando documento',
     'flow.description': 'Describe el problema',
     'flow.title': 'Tablero de tareas', 'flow.new': 'Nuevo requisito', 'flow.name': 'Título', 'flow.goal': 'Objetivo y criterios de aceptación',
     'flow.settings': 'Ajustes de nodos', 'flow.save': 'Guardar plantilla', 'flow.create': 'Crear', 'flow.default': 'Heredar valor predeterminado',
@@ -62,6 +67,7 @@ export const flowI18n = {
     'flow.node.tickets': 'Dividir en tickets', 'flow.node.develop': 'Desarrollar', 'flow.node.review': 'Revisar', 'flow.node.verify': 'Verificar integración', 'flow.node.release': 'Preparar entrega',
   },
   ja: {
+    'flow.documents.title': '共有ドキュメント', 'flow.documents.empty': 'ドキュメントはまだありません', 'flow.documents.version': 'バージョン {version}', 'flow.documents.draft': '下書き', 'flow.documents.confirmed': '確認済み', 'flow.documents.loading': 'ドキュメントを読み込み中',
     'flow.description': '問題を説明',
     'flow.title': 'タスクボード', 'flow.new': '要件を作成', 'flow.name': 'タイトル', 'flow.goal': '目標と受け入れ条件',
     'flow.settings': 'ノード設定', 'flow.save': 'テンプレートを保存', 'flow.create': '作成', 'flow.default': '既定値を継承',
@@ -74,6 +80,7 @@ export const flowI18n = {
     'flow.node.tickets': 'チケットに分割', 'flow.node.develop': '開発', 'flow.node.review': 'レビュー', 'flow.node.verify': '結合検証', 'flow.node.release': '引き渡し準備',
   },
   'pt-BR': {
+    'flow.documents.title': 'Documentos compartilhados', 'flow.documents.empty': 'Nenhum documento ainda', 'flow.documents.version': 'Versão {version}', 'flow.documents.draft': 'Rascunho', 'flow.documents.confirmed': 'Confirmado', 'flow.documents.loading': 'Carregando documento',
     'flow.description': 'Descreva o problema',
     'flow.title': 'Quadro de tarefas', 'flow.new': 'Novo requisito', 'flow.name': 'Título', 'flow.goal': 'Objetivo e critérios de aceitação',
     'flow.settings': 'Configurações dos nós', 'flow.save': 'Salvar modelo', 'flow.create': 'Criar', 'flow.default': 'Herdar padrão',
@@ -86,6 +93,7 @@ export const flowI18n = {
     'flow.node.tickets': 'Dividir em tickets', 'flow.node.develop': 'Desenvolver', 'flow.node.review': 'Revisar', 'flow.node.verify': 'Verificar integração', 'flow.node.release': 'Preparar entrega',
   },
   uk: {
+    'flow.documents.title': 'Спільні документи', 'flow.documents.empty': 'Документів ще немає', 'flow.documents.version': 'Версія {version}', 'flow.documents.draft': 'Чернетка', 'flow.documents.confirmed': 'Підтверджено', 'flow.documents.loading': 'Завантаження документа',
     'flow.description': 'Опишіть проблему',
     'flow.title': 'Дошка завдань', 'flow.new': 'Нова вимога', 'flow.name': 'Назва', 'flow.goal': 'Мета й критерії приймання',
     'flow.settings': 'Налаштування вузлів', 'flow.save': 'Зберегти шаблон', 'flow.create': 'Створити', 'flow.default': 'Успадкувати типове',
@@ -98,6 +106,7 @@ export const flowI18n = {
     'flow.node.tickets': 'Розбити на квитки', 'flow.node.develop': 'Розробити', 'flow.node.review': 'Перевірити', 'flow.node.verify': 'Перевірити інтеграцію', 'flow.node.release': 'Підготувати передачу',
   },
   ko: {
+    'flow.documents.title': '공유 문서', 'flow.documents.empty': '아직 문서가 없습니다', 'flow.documents.version': '버전 {version}', 'flow.documents.draft': '초안', 'flow.documents.confirmed': '확인됨', 'flow.documents.loading': '문서 불러오는 중',
     'flow.description': '문제 설명',
     'flow.title': '작업 보드', 'flow.new': '새 요구 사항', 'flow.name': '제목', 'flow.goal': '목표와 인수 조건',
     'flow.settings': '노드 설정', 'flow.save': '템플릿 저장', 'flow.create': '만들기', 'flow.default': '기본값 상속',
@@ -110,6 +119,7 @@ export const flowI18n = {
     'flow.node.tickets': '티켓 분할', 'flow.node.develop': '개발', 'flow.node.review': '검토', 'flow.node.verify': '통합 검증', 'flow.node.release': '인도 준비',
   },
   pl: {
+    'flow.documents.title': 'Wspólne dokumenty', 'flow.documents.empty': 'Nie ma jeszcze dokumentów', 'flow.documents.version': 'Wersja {version}', 'flow.documents.draft': 'Szkic', 'flow.documents.confirmed': 'Potwierdzono', 'flow.documents.loading': 'Wczytywanie dokumentu',
     'flow.description': 'Opisz problem',
     'flow.title': 'Tablica zadań', 'flow.new': 'Nowe wymaganie', 'flow.name': 'Tytuł', 'flow.goal': 'Cel i kryteria akceptacji',
     'flow.settings': 'Ustawienia węzłów', 'flow.save': 'Zapisz szablon', 'flow.create': 'Utwórz', 'flow.default': 'Dziedzicz domyślne',
@@ -122,6 +132,7 @@ export const flowI18n = {
     'flow.node.tickets': 'Podziel zgłoszenia', 'flow.node.develop': 'Zaimplementuj', 'flow.node.review': 'Sprawdź', 'flow.node.verify': 'Zweryfikuj integrację', 'flow.node.release': 'Przygotuj przekazanie',
   },
   'zh-CN': {
+    'flow.documents.title': '共享文档', 'flow.documents.empty': '暂无文档', 'flow.documents.version': '版本 {version}', 'flow.documents.draft': '草稿', 'flow.documents.confirmed': '已确认', 'flow.documents.loading': '正在加载文档',
     'flow.description': '描述问题',
     'flow.title': '任务看板', 'flow.new': '新建需求', 'flow.name': '标题', 'flow.goal': '目标与验收条件',
     'flow.settings': '节点配置', 'flow.save': '保存模板', 'flow.create': '创建', 'flow.default': '继承默认',
@@ -134,6 +145,7 @@ export const flowI18n = {
     'flow.node.tickets': '拆分任务', 'flow.node.develop': '开发', 'flow.node.review': '审查', 'flow.node.verify': '整体验证', 'flow.node.release': '交付准备',
   },
   'zh-TW': {
+    'flow.documents.title': '共用文件', 'flow.documents.empty': '暫無文件', 'flow.documents.version': '版本 {version}', 'flow.documents.draft': '草稿', 'flow.documents.confirmed': '已確認', 'flow.documents.loading': '正在載入文件',
     'flow.description': '描述問題',
     'flow.title': '任務看板', 'flow.new': '新增需求', 'flow.name': '標題', 'flow.goal': '目標與驗收條件',
     'flow.settings': '節點設定', 'flow.save': '儲存範本', 'flow.create': '建立', 'flow.default': '繼承預設',
@@ -146,6 +158,7 @@ export const flowI18n = {
     'flow.node.tickets': '拆分任務', 'flow.node.develop': '開發', 'flow.node.review': '審查', 'flow.node.verify': '整體驗證', 'flow.node.release': '交付準備',
   },
   tr: {
+    'flow.documents.title': 'Paylaşılan belgeler', 'flow.documents.empty': 'Henüz belge yok', 'flow.documents.version': 'Sürüm {version}', 'flow.documents.draft': 'Taslak', 'flow.documents.confirmed': 'Onaylandı', 'flow.documents.loading': 'Belge yükleniyor',
     'flow.description': 'Sorunu açıklayın',
     'flow.title': 'Görev panosu', 'flow.new': 'Yeni gereksinim', 'flow.name': 'Başlık', 'flow.goal': 'Hedef ve kabul koşulları',
     'flow.settings': 'Düğüm ayarları', 'flow.save': 'Şablonu kaydet', 'flow.create': 'Oluştur', 'flow.default': 'Varsayılanı devral',
@@ -158,6 +171,7 @@ export const flowI18n = {
     'flow.node.tickets': 'İş kayıtlarına böl', 'flow.node.develop': 'Geliştir', 'flow.node.review': 'İncele', 'flow.node.verify': 'Bütünleştirmeyi doğrula', 'flow.node.release': 'Teslimatı hazırla',
   },
   ar: {
+    'flow.documents.title': 'المستندات المشتركة', 'flow.documents.empty': 'لا توجد مستندات بعد', 'flow.documents.version': 'الإصدار {version}', 'flow.documents.draft': 'مسودة', 'flow.documents.confirmed': 'مؤكد', 'flow.documents.loading': 'جارٍ تحميل المستند',
     'flow.description': 'صف المشكلة',
     'flow.title': 'لوحة المهام', 'flow.new': 'متطلب جديد', 'flow.name': 'العنوان', 'flow.goal': 'الهدف ومعايير القبول',
     'flow.settings': 'إعدادات العقد', 'flow.save': 'حفظ القالب', 'flow.create': 'إنشاء', 'flow.default': 'استخدام الإعداد الافتراضي',
@@ -170,6 +184,7 @@ export const flowI18n = {
     'flow.node.tickets': 'تقسيم التذاكر', 'flow.node.develop': 'تطوير', 'flow.node.review': 'مراجعة', 'flow.node.verify': 'التحقق من التكامل', 'flow.node.release': 'تجهيز التسليم',
   },
   he: {
+    'flow.documents.title': 'מסמכים משותפים', 'flow.documents.empty': 'אין מסמכים עדיין', 'flow.documents.version': 'גרסה {version}', 'flow.documents.draft': 'טיוטה', 'flow.documents.confirmed': 'מאושר', 'flow.documents.loading': 'טעינת מסמך',
     'flow.description': 'תיאור הבעיה',
     'flow.title': 'לוח משימות', 'flow.new': 'דרישה חדשה', 'flow.name': 'כותרת', 'flow.goal': 'מטרה ותנאי קבלה',
     'flow.settings': 'הגדרות צמתים', 'flow.save': 'שמירת תבנית', 'flow.create': 'יצירה', 'flow.default': 'ירושת ברירת מחדל',

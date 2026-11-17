@@ -149,6 +149,9 @@ session proposed. `workflow.save` writes a script to
   still queued when a run stopped do not use up the limit for its resume.
 - An answer the answer tool accepted stands even if the agent's turn then
   ends in an error; only a stop of the run discards it.
+- Flow document writes use the runtime's live-agent membership check. Session
+  admission precedes the first tool call; settlement and cancellation remove
+  write authority independently of persisted session history.
 - An agent's phase is the `phase` option of its `agent()` call, else the last
   `phase()`: inside parallel branches the global one may belong to another
   branch. The phase is presentation only and not part of the replay key.

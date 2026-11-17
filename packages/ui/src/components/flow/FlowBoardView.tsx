@@ -18,6 +18,7 @@ import { readFlowBoard, readFlowTemplate, saveFlowTemplate, createFlowRequiremen
 import { NodeConfigEditor } from './NodeConfigEditor';
 import { FlowIcon, FlowSettingsIcon } from './FlowIcon';
 import { FlowTaskRequests } from './FlowTaskRequests';
+import { FlowDocuments } from './FlowDocuments';
 
 const STATES: FlowState[] = ['todo', 'running', 'attention', 'acceptance', 'done'];
 const ticketState = (requirement: FlowRequirement, state: FlowState): FlowState => state === 'running' && requirement.state === 'attention' ? 'attention' : state;
@@ -183,6 +184,7 @@ export function FlowBoardView() {
         {ticket && <ul className="mt-6 list-disc space-y-2 ps-5 typography-meta">{ticket.acceptance.map((criterion) => <li key={criterion} dir="auto">{criterion}</li>)}</ul>}
         {ticket?.review?.findings.map((finding) => <div key={`${finding.file}/${finding.scenario}`} className="mt-4 rounded-lg bg-[var(--status-error-background)] p-3 typography-meta text-[var(--status-error-text)]"><code dir="ltr">{finding.file}</code><p dir="auto">{finding.scenario}</p><p dir="auto">{finding.cause}</p><p dir="auto">{finding.fix}</p></div>)}
         {ticket?.development && <details className="mt-6"><summary className="cursor-pointer typography-meta">{t('flow.evidence')}</summary><ul className="mt-3 list-disc space-y-2 ps-5 typography-meta">{ticket.development.evidence.map((item) => <li key={item} dir="auto">{item}</li>)}</ul></details>}
+        <FlowDocuments key={`${runtimeEpoch}/${selected.id}`} requirement={selected} />
         {selected.artifacts.spec && <details className="mt-6"><summary className="cursor-pointer typography-meta">{t('flow.spec')}</summary><p className="mt-3 whitespace-pre-wrap typography-meta" dir="auto">{selected.artifacts.spec.content}</p></details>}
         {selected.artifacts.release && <p className="mt-6 whitespace-pre-wrap typography-meta" dir="auto">{selected.artifacts.release.summary}</p>}
         <details className="mt-6" open><summary className="cursor-pointer typography-meta">{t('flow.activity')}</summary><ol className="mt-3 space-y-4 typography-meta">{selected.events.slice().reverse().map((entry, index) => <li key={`${entry.at}/${index}`}><span className="text-muted-foreground">{entry.node}</span><p className="mt-1 whitespace-pre-wrap" dir="auto">{entry.message}</p></li>)}</ol></details>

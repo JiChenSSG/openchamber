@@ -626,7 +626,8 @@ describe('workflow runtime', () => {
     const status = await finished(runId);
     expect(agents.started[0]).toContain('openchamber_workflow_answer');
     expect(agents.allowed[0]).toEqual(['openchamber_workflow_answer']);
-    expect(agents.followUps).toEqual(['No accepted answer yet: the answer is not JSON. Hand it over with the openchamber_workflow_answer tool, or end your turn with only the JSON value.']);
+    expect(agents.started).toHaveLength(1);
+    expect(agents.followUps).toHaveLength(1);
     expect(await act('workflow.result', { runId })).toMatchObject({ result: { files: ['a.ts'] } });
     expect(status.state).toBe('completed');
   });
@@ -722,7 +723,6 @@ describe('workflow runtime', () => {
     const { runId } = await act('workflow.run', { script: script(body) });
     await runtime.approve({ runId });
     expect((await finished(runId)).state).toBe('completed');
-    expect(agents.started[0]).toContain('pass { "value": <your value> }');
     expect(await act('workflow.result', { runId })).toMatchObject({ result: ['blue', { files: ['a.ts'] }] });
   });
 

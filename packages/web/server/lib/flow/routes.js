@@ -21,7 +21,7 @@ export const registerFlowRoutes = (app, runtime) => {
     switch (req.params.action) {
       case 'start': return runtime.start(id);
       case 'stop': return runtime.stop(id);
-      case 'answer': return runtime.answer(id, z.array(z.string().trim().min(1)).min(1).parse(body.answers), body.revision);
+      case 'answer': return runtime.answer(id, z.array(z.string().trim().min(1)).min(1).parse(body.answers), body.revision, body.resume);
       case 'accept': return runtime.accept(id, body.ticketId, body.revision);
       default: throw Object.assign(new Error('Unknown Flow action'), { statusCode: 404 });
     }

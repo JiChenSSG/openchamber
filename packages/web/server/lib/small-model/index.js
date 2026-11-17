@@ -329,7 +329,7 @@ const JSON_FENCE = /^```(?:json)?\s*\n?([\s\S]*?)\n?```$/;
  * prompt and the reply is parsed here.
  */
 const buildSchemaInstruction = (responseSchema) =>
-  `Reply with JSON matching this schema and nothing else: ${JSON.stringify(responseSchema)}`;
+  `Reply with JSON matching this schema and nothing else: ${JSON.stringify(responseSchema)}\n\nGenerate a data value conforming to the schema. Return that value alone, without schema definitions or Markdown fences.`;
 
 const extractJsonText = (raw) => {
   const trimmed = typeof raw === 'string' ? raw.trim() : '';

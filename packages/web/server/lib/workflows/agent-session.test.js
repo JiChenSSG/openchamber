@@ -34,6 +34,19 @@ const createSessionRequest = async ({ parent, allowTools, model }) => {
 };
 
 describe('workflow agent sessions', () => {
+  it('creates the owner in the requested workspace through the session location body', async () => {
+    let request;
+    const sessions = createWorkflowAgentSessions({
+      buildOpenCodeUrl: (route) => `http://localhost:4096${route}`,
+      getOpenCodeAuthHeaders: () => ({}),
+      globalEventHub: { subscribeEvent: () => () => {} },
+      createClient: () => ({ session: { create: async (input) => { request = input; return { id: 'ses_owner' }; } } }),
+    });
+    expect(await sessions.createSession({ directory: '/repo/worktree', title: 'Flow task' })).toBe('ses_owner');
+    expect(request).toMatchObject({ location: { directory: '/repo/worktree' } });
+    sessions.stop();
+  });
+
   it('sends an explicitly selected variant in the session model reference', async () => {
     const request = await createSessionRequest({ parent: null, allowTools: [], model: 'fixture/model#fast' });
     expect(request.model).toEqual({ providerID: 'fixture', id: 'model', variant: 'fast' });

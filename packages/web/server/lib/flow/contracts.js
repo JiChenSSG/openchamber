@@ -51,7 +51,7 @@ const ticketSchema = ticketDraft.extend({
 });
 export const requirementSchema = z.object({
   version: z.literal(1), id: z.string().regex(/^flw_[a-f0-9]{32}$/), revision: z.number().int().nonnegative(),
-  title: text.max(240), task: text.max(20_000), directory: text, workspace: text, sessionId: text,
+  title: text.max(240), task: text.max(20_000), goal: text.max(12_000).optional(), directory: text, workspace: text, sessionId: text,
   state: z.enum(['todo', 'running', 'attention', 'acceptance', 'done']),
   config: templateSchema, createdAt: z.number(), updatedAt: z.number(),
   artifacts: z.object({
@@ -66,7 +66,7 @@ export const requirementSchema = z.object({
   error: z.string().nullable(),
 });
 export const createRequirementSchema = z.object({
-  title: text.max(240), task: text.max(20_000), directory: text,
+  title: text.max(240).optional(), task: text.max(20_000), directory: text,
   runInWorktree: z.boolean().default(true), config: templateSchema.optional(),
 }).strict();
 
@@ -75,6 +75,7 @@ export const requirementActionSchema = z.object({
   revision: z.number().int().nonnegative(),
   ticketId: z.string().trim().min(1).optional(),
   answers: z.array(z.string().trim().min(1).max(8_000)).max(6).optional(),
+  resume: z.boolean().optional(),
 }).strict();
 
 export const validateTickets = (drafts) => {

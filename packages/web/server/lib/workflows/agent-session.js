@@ -229,7 +229,7 @@ export const createWorkflowAgentSessions = ({
   /** A plain session for a saved workflow the user runs where no session is open. */
   const createSession = async ({ directory, title }) => {
     const client = await getClient(directory);
-    return sessionSchema.parse(await client.session.create({ title })).id;
+    return sessionSchema.parse(await client.session.create({ title, location: { directory } })).id;
   };
 
   /** A follow-up prompt in an agent's own session, such as a schema correction. */

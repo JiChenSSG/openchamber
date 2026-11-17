@@ -1,6 +1,5 @@
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -18,12 +17,9 @@ import { refreshProjectWorktrees } from '@/lib/worktrees/worktreeManager';
 import { readFlowBoard, readFlowTemplate, saveFlowTemplate, createFlowRequirement, actOnFlow, type FlowRequirement, type FlowTicket, type FlowState, type FlowTemplate } from '@/lib/flow/api';
 import { NodeConfigEditor } from './NodeConfigEditor';
 import { FlowIcon, FlowSettingsIcon } from './FlowIcon';
+import { FlowTaskRequests } from './FlowTaskRequests';
 
 const STATES: FlowState[] = ['todo', 'running', 'attention', 'acceptance', 'done'];
-const statusStyle = {
-  todo: 'text-muted-foreground', running: 'text-[var(--status-info-text)]', attention: 'text-[var(--status-warning-text)]',
-  acceptance: 'text-[var(--status-success-text)]', done: 'text-muted-foreground',
-} satisfies Record<FlowState, string>;
 const ticketState = (requirement: FlowRequirement, state: FlowState): FlowState => state === 'running' && requirement.state === 'attention' ? 'attention' : state;
 type Selection = { requirementId: string; ticketId: string | null };
 
@@ -44,9 +40,9 @@ export function FlowBoardView() {
   const [loading, setLoading] = React.useState(true);
   const [busy, setBusy] = React.useState(false);
   const [newOpen, setNewOpen] = React.useState(false);
+  const [createError, setCreateError] = React.useState('');
   const [settingsOpen, setSettingsOpen] = React.useState(false);
   const [draft, setDraft] = React.useState<FlowTemplate | null>(null);
-  const [title, setTitle] = React.useState('');
   const [task, setTask] = React.useState('');
   const [worktree, setWorktree] = React.useState(true);
   const [answers, setAnswers] = React.useState<string[]>([]);
@@ -93,6 +89,7 @@ export function FlowBoardView() {
 
   const selected = requirements.find((entry) => entry.id === selection?.requirementId);
   const ticket = selected?.tickets.find((entry) => entry.id === selection?.ticketId);
+  const blockers = ticket?.blockedBy.filter((id) => !selected?.tickets.some((entry) => entry.id === id && entry.state === 'done')) ?? [];
   const visible = filter === 'all' ? requirements : requirements.filter((entry) => entry.id === filter);
   const perform = async <T,>(work: () => Promise<T>) => {
     if (busy) return;
@@ -107,7 +104,7 @@ export function FlowBoardView() {
   };
   const openNew = () => {
     if (!template) return;
-    setDraft(structuredClone(template)); setTitle(''); setTask(''); setWorktree(true); setNewOpen(true);
+    setDraft(structuredClone(template)); setTask(''); setWorktree(true); setError(''); setCreateError(''); setNewOpen(true);
   };
   const openSettings = () => {
     if (!template) return;
@@ -141,20 +138,17 @@ export function FlowBoardView() {
       <div className={`min-w-0 flex-1 overflow-x-auto ${selection ? 'hidden @5xl:block' : ''}`}>
         <div className="grid h-full min-w-[1000px] grid-cols-5 gap-3">
           {STATES.map((state) => {
-            const cards = visible.flatMap<{ record: FlowRequirement; ticket: FlowTicket | null }>((record) => record.tickets.length
-              ? record.tickets.filter((entry) => ticketState(record, entry.state) === state).map((entry) => ({ record, ticket: entry }))
-              : record.state === state ? [{ record, ticket: null }] : []);
+            const cards = visible.flatMap<{ record: FlowRequirement; ticket: FlowTicket | null }>((record) => [
+              ...((!record.tickets.length || record.questions.length > 0) && record.state === state ? [{ record, ticket: null }] : []),
+              ...record.tickets.filter((entry) => ticketState(record, entry.state) === state).map((entry) => ({ record, ticket: entry })),
+            ]);
             return <section key={state} className="flex min-h-0 flex-col" aria-label={t(`flow.state.${state}`)}>
               <div className="flex h-10 shrink-0 items-center gap-2"><span className={`size-1.5 rounded-full ${state === 'running' ? 'bg-[var(--status-info)]' : state === 'attention' ? 'bg-[var(--status-warning)]' : state === 'acceptance' ? 'bg-[var(--status-success)]' : 'bg-muted-foreground'}`} /><h2 className="typography-meta font-medium">{t(`flow.state.${state}`)}</h2><span className="ms-auto typography-meta text-muted-foreground">{cards.length}</span></div>
               <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pb-2">
                 {cards.map(({ record, ticket: item }) => {
-                  const blockers = item?.blockedBy.filter((id) => !record.tickets.some((entry) => entry.id === id && entry.state === 'done')) ?? [];
-                  return <button key={`${record.id}/${item?.id ?? ''}`} type="button" aria-pressed={selection?.requirementId === record.id && selection.ticketId === (item?.id ?? null)} onClick={() => { setSelection({ requirementId: record.id, ticketId: item?.id ?? null }); setAnswers([]); }} className="oc-tile oc-tile-hover flex flex-col gap-3 rounded-xl p-3 text-start">
-                  <span className="typography-micro text-muted-foreground" dir="auto">{item ? `${record.title} · ${item.id}` : record.title}</span>
-                  <span className="typography-body font-medium" dir="auto">{item?.title ?? record.task}</span>
-                  <span className={`typography-meta ${statusStyle[state]}`}>{record.pending && (!item || record.pending.ticketId === item.id) ? t(`flow.node.${record.pending.node}`) : t(`flow.state.${state}`)}</span>
-                  {item && <span className="typography-micro text-muted-foreground">{t('flow.reviews', { used: item.reviewUsed, limit: record.config.maxReviewRounds })}</span>}
-                  {blockers.length ? <span className="truncate typography-micro text-muted-foreground">{t('flow.blocked', { tickets: blockers.join(', ') })}</span> : null}
+                  const cardTitle = item?.title ?? record.title;
+                  return <button key={`${record.id}/${item?.id ?? ''}`} type="button" title={cardTitle} aria-pressed={selection?.requirementId === record.id && selection.ticketId === (item?.id ?? null)} onClick={() => { if (selection?.requirementId !== record.id) setAnswers([]); setSelection({ requirementId: record.id, ticketId: item?.id ?? null }); }} className="oc-tile oc-tile-hover min-h-11 w-full min-w-0 shrink-0 rounded-lg px-3 py-2 text-start aria-pressed:bg-interactive-selection aria-pressed:text-interactive-selection-foreground">
+                  <span className="oc-ui-start-align block truncate typography-body font-medium" dir="auto">{cardTitle}</span>
                 </button>;
                 })}
                 {!cards.length && <div className="flex flex-1 items-start justify-center pt-8 typography-meta text-muted-foreground">{t('flow.empty')}</div>}
@@ -166,7 +160,17 @@ export function FlowBoardView() {
       {selected && <aside className="flex min-h-0 w-full shrink-0 flex-col overflow-y-auto @5xl:w-96" aria-label={ticket?.title ?? selected.title}>
         <div className="flex items-center gap-2 pb-4"><Button variant="ghost" size="sm" onClick={() => setSelection(null)}><FlowIcon className="me-2 size-4" />{t('flow.title')}</Button><div className="flex-1" /><Button variant="ghost" size="sm" disabled={busy} onClick={() => void perform(openSession)}>{t('workflows.panel.agent.openSession')}</Button></div>
         <h2 className="typography-body font-medium" dir="auto">{ticket?.title ?? selected.title}</h2>
-        <p className="mt-3 whitespace-pre-wrap typography-meta" dir="auto">{ticket?.description ?? selected.task}</p>
+        <FlowTaskRequests key={selected.id} sessionId={selected.sessionId} directory={selected.workspace} />
+        {selected.questions.length > 0 && <form className="mt-4 flex flex-col gap-4" onSubmit={(event) => {
+          event.preventDefault();
+          const generation = owner.current;
+          void perform(async () => { await actOnFlow(selected, 'answer', { answers, resume: true }); if (generation === owner.current) setAnswers([]); });
+        }}>
+          {selected.questions.map((question, index) => <SettingsStackedField key={`${selected.id}/${index}/${question}`} label={question} controlClassName="w-full max-w-none"><Textarea aria-label={question} required value={answers[index] ?? ''} maxLength={8_000} disabled={busy} onChange={(event) => setAnswers((previous) => selected.questions.map((_, current) => current === index ? event.target.value : previous[current] ?? ''))} /></SettingsStackedField>)}
+          <Button type="submit" disabled={busy || selected.questions.some((_, index) => !answers[index]?.trim())}>{t('flow.answer')}</Button>
+        </form>}
+        <p className="mt-3 whitespace-pre-wrap typography-meta" dir="auto">{ticket?.description ?? selected.goal ?? selected.task}</p>
+        {!ticket && selected.goal && <details className="mt-3"><summary className="cursor-pointer typography-meta">{t('flow.description')}</summary><p className="mt-3 whitespace-pre-wrap typography-meta" dir="auto">{selected.task}</p></details>}
         <code dir="ltr" className="mt-3 break-all typography-micro text-muted-foreground">{selected.workspace}</code>
         {selected.error && <p className="mt-4 rounded-lg bg-[var(--status-warning-background)] p-3 typography-meta text-[var(--status-warning-text)]" role="alert">{selected.error}</p>}
         <div className="mt-4 flex flex-wrap gap-2">
@@ -174,10 +178,8 @@ export function FlowBoardView() {
           {ticket?.state === 'acceptance' && <Button size="sm" disabled={busy} onClick={() => void perform(() => actOnFlow(selected, 'accept', { ticketId: ticket.id }))}>{t('flow.accept')}</Button>}
           {selected.artifacts.release && selected.state !== 'done' && <Button size="sm" disabled={busy || selected.state === 'running'} onClick={() => void perform(() => actOnFlow(selected, 'accept'))}>{t('flow.accept')}</Button>}
         </div>
-        {selected.questions.length > 0 && <form className="mt-6 flex flex-col gap-4" onSubmit={(event) => { event.preventDefault(); void perform(() => actOnFlow(selected, 'answer', { answers })); }}>
-          {selected.questions.map((question, index) => <SettingsStackedField key={`${selected.id}/${index}/${question}`} label={question} controlClassName="w-full max-w-none"><Textarea aria-label={question} required value={answers[index] ?? ''} maxLength={8_000} onChange={(event) => setAnswers((previous) => selected.questions.map((_, current) => current === index ? event.target.value : previous[current] ?? ''))} /></SettingsStackedField>)}
-          <Button type="submit" disabled={busy || selected.questions.some((_, index) => !answers[index]?.trim())}>{t('flow.answer')}</Button>
-        </form>}
+        {ticket && <p className="mt-4 typography-meta text-muted-foreground">{t('flow.reviews', { used: ticket.reviewUsed, limit: selected.config.maxReviewRounds })}</p>}
+        {blockers.length ? <p className="mt-2 typography-meta text-muted-foreground">{t('flow.blocked', { tickets: blockers.join(', ') })}</p> : null}
         {ticket && <ul className="mt-6 list-disc space-y-2 ps-5 typography-meta">{ticket.acceptance.map((criterion) => <li key={criterion} dir="auto">{criterion}</li>)}</ul>}
         {ticket?.review?.findings.map((finding) => <div key={`${finding.file}/${finding.scenario}`} className="mt-4 rounded-lg bg-[var(--status-error-background)] p-3 typography-meta text-[var(--status-error-text)]"><code dir="ltr">{finding.file}</code><p dir="auto">{finding.scenario}</p><p dir="auto">{finding.cause}</p><p dir="auto">{finding.fix}</p></div>)}
         {ticket?.development && <details className="mt-6"><summary className="cursor-pointer typography-meta">{t('flow.evidence')}</summary><ul className="mt-3 list-disc space-y-2 ps-5 typography-meta">{ticket.development.evidence.map((item) => <li key={item} dir="auto">{item}</li>)}</ul></details>}
@@ -189,9 +191,13 @@ export function FlowBoardView() {
     {newOpen && draft && <Dialog open onOpenChange={(open) => { if (!busy) setNewOpen(open); }}><DialogContent className="max-h-[85dvh] max-w-3xl overflow-y-auto" aria-describedby={undefined}><DialogTitle>{t('flow.new')}</DialogTitle>
       <form className="flex flex-col gap-5" onSubmit={(event) => {
         event.preventDefault();
+        setCreateError('');
         const generation = owner.current;
         void perform(async () => {
-          const record = await createFlowRequirement({ title, task, directory, runInWorktree: worktree, config: draft });
+          const record = await createFlowRequirement({ task, directory, runInWorktree: worktree, config: draft }).catch((cause: unknown) => {
+            if (generation === owner.current) setCreateError(cause instanceof Error ? cause.message : String(cause));
+            throw cause;
+          });
           if (generation !== owner.current) return;
           setNewOpen(false); setSelection({ requirementId: record.id, ticketId: null });
           if (worktree && project) {
@@ -201,11 +207,11 @@ export function FlowBoardView() {
           }
         });
       }}>
-        <SettingsStackedField label={t('flow.name')} controlClassName="w-full max-w-none"><Input aria-label={t('flow.name')} required maxLength={240} value={title} onChange={(event) => setTitle(event.target.value)} /></SettingsStackedField>
-        <SettingsStackedField label={t('flow.goal')} controlClassName="w-full max-w-none"><Textarea aria-label={t('flow.goal')} required rows={5} maxLength={20_000} value={task} onChange={(event) => setTask(event.target.value)} /></SettingsStackedField>
+        <SettingsStackedField label={t('flow.description')} controlClassName="w-full max-w-none"><Textarea aria-label={t('flow.description')} required rows={5} maxLength={20_000} disabled={busy} value={task} onChange={(event) => setTask(event.target.value)} /></SettingsStackedField>
         <SettingsCheckboxRow checked={worktree} onChange={setWorktree} label={t('workflows.flow.worktree')} ariaLabel={t('workflows.flow.worktree')} />
         <details><summary className="cursor-pointer typography-meta">{t('flow.settings')}</summary><div className="pt-5"><NodeConfigEditor directory={directory} value={draft} onChange={setDraft} /></div></details>
-        <div className="flex justify-end gap-2"><Button variant="ghost" type="button" disabled={busy} onClick={() => setNewOpen(false)}>{t('dialog.common.actions.cancel')}</Button><Button type="submit" disabled={busy || !title.trim() || !task.trim()}>{t('flow.create')}</Button></div>
+        <p className={`min-h-5 typography-meta ${createError ? 'text-[var(--status-error-text)]' : 'text-muted-foreground'}`} role="status">{createError || (busy ? t('common.loading') : '')}</p>
+        <div className="flex justify-end gap-2"><Button variant="ghost" type="button" disabled={busy} onClick={() => setNewOpen(false)}>{t('dialog.common.actions.cancel')}</Button><Button type="submit" disabled={busy || !task.trim()}>{t('flow.create')}</Button></div>
       </form>
     </DialogContent></Dialog>}
     {settingsOpen && draft && <Dialog open onOpenChange={(open) => { if (!busy) setSettingsOpen(open); }}><DialogContent className="max-h-[85dvh] max-w-4xl overflow-y-auto" aria-describedby={undefined}><DialogTitle>{t('flow.settings')}</DialogTitle>

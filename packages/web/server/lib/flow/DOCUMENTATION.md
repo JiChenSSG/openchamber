@@ -12,11 +12,23 @@ no provider connection and never publishes code or external tracker issues.
 
 - The server validates every Router action against the current legal frontier.
   The model cannot waive dependencies, acceptance, budgets or permission checks.
+  Its output schema lists the frontier's node names and Ticket IDs, including
+  the pause option; the server still checks each returned node/Ticket pair.
+  Each available node also carries its artifact purpose in the Router snapshot,
+  so choosing a planning stage can advance an implementation request.
 - Router uses the existing one-shot Small Model helper with a bounded snapshot,
-  a 20-second deadline and no session, history or tools. Model and variant can
+  a 60-second deadline and no session, history or tools. Model and variant can
   be selected independently. Routing fails visibly on invalid output.
 - The template captures each node's prompt, model, variant, agent and explicit
   skills. New requirements copy it; later template edits cannot alter a run.
+- Description-only creation uses the captured Router model, or Small Model,
+  to generate a short title and goal before allocating a worktree or session.
+  The original task remains authoritative and is retained alongside the goal.
+  Explicit-title callers keep their existing creation contract. Invalid model
+  output or generation failure creates no task or workspace.
+- Every node result includes factual evidence. Clarification and planning can
+  cite task facts or confirmed decisions; implementation, Review and verification
+  cite inspected files or checks actually run. Empty evidence remains invalid.
 - `to-spec` and `to-tickets` are explicitly attached skills. Flow replaces their
   tracker publishing and ticket-confirmation steps with a structured local
   result. All ticket identifiers and blocking edges are validated before any
@@ -42,6 +54,9 @@ no provider connection and never publishes code or external tracker issues.
 - Closing the board leaves execution on the server. Restart marks interrupted
   requirements as needing attention; explicit resume reconciles the captured
   workflow node before sending another prompt.
+- Board answers can request immediate resume after the answers are persisted.
+  Tool answers retain explicit Start. Stale or incomplete answers never resume
+  execution. A resume failure retains the saved answers for explicit retry.
 
 ## Persistence and failure
 
@@ -79,6 +94,14 @@ Workflows switch and checks it on every call, including stale plugin calls.
 Template editing remains in the board UI.
 
 ## Decisions
+
+### Why intake keeps the original description
+
+A generated goal can omit a constraint. Keeping the user's text authoritative
+prevents summarization from silently changing acceptance. Intake uses Small
+Model's prompt-sized deadline; the Router retains a separate 60-second hang
+guard. Its budget covers cold-model admission and generation without changing
+the pause decision, frontier checks or acceptance gates.
 
 ### Why persisted state is separate from Router context
 

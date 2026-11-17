@@ -90,10 +90,11 @@ const readAgentOptions = (raw) => {
 
 const schemaInstruction = (schema) => [
   '',
-  `Your answer is a JSON value matching the JSON Schema below. Hand it over with the ${WORKFLOW_ANSWER_TOOL} tool: pass the value itself as answer, as a JSON object, not as text${schema.type === 'object' ? '' : ' (this schema is not an object, so pass { "value": <your value> })'}. It checks the value at once and says what to fix; call it again until it is accepted, then end your turn. If you do not have that tool, end your turn with only the JSON value and no text around it.`,
+  `Your answer is a JSON data value matching the JSON Schema below. Submit it with a normal direct call to ${WORKFLOW_ANSWER_TOOL}: put the value in parameters.answer as a JSON object${schema.type === 'object' ? '' : ' (wrap a non-object value as { "value": <your value> })'}. This direct tool checks the value and reports corrections; finish the turn after acceptance. If the direct tool is unavailable, return only the matching JSON value as final assistant text.`,
   '```json',
   JSON.stringify(schema, null, 2),
   '```',
+  `For this report, use the direct ${WORKFLOW_ANSWER_TOOL} tool or final JSON text. The execute tool runs JavaScript programs for project work; putting report JSON in its code input does not submit an answer.`,
 ].join('\n');
 
 /**
@@ -500,7 +501,7 @@ export const createWorkflowRuntime = ({
         current = await agentSessions.followUp({
           directory: run.directory,
           sessionId,
-          text: `No accepted answer yet: ${mismatch}. Hand it over with the ${WORKFLOW_ANSWER_TOOL} tool, or end your turn with only the JSON value.`,
+          text: `No accepted answer yet: ${mismatch}. Return only the schema-matching JSON value as final assistant text. Finish this correction without tool calls or Markdown fences.`,
           signal,
         });
       }

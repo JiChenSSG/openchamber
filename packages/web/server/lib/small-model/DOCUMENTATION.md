@@ -222,8 +222,9 @@ generation own their error toast and suppress the shared request toast.
 ## Structured output
 
 `/api/experimental/generate/text` has no structured-output mode. `responseSchema` is therefore
-emulated: the schema is appended to the prompt as "Reply with JSON matching this
-schema and nothing else: …", and the reply is parsed here. A ```json fence is
+emulated: the schema is appended to the prompt, followed by an instruction to
+generate the matching data value without schema definitions or Markdown fences. JSON
+syntax is checked here; callers validate the result shape. A ```json fence is
 stripped. An unparseable reply is retried **once** — a model that ignored the
 shape often honours it on a second pass, and the alternative is failing a
 walkthrough over a stray sentence of preamble. A second failure throws with

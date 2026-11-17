@@ -154,8 +154,8 @@ session proposed. `workflow.save` writes a script to
   branch. The phase is presentation only and not part of the replay key.
 - A schema answer is the last value `openchamber_workflow_answer` accepted
   during the agent's turn; only without one is the final text parsed, with up
-  to two follow-ups asking for the tool or bare JSON. The tool answers only the
-  session of an agent whose call asked for a schema, and only while that call
+  to two follow-ups requesting bare JSON as final assistant text. The tool answers
+  only the session of an agent whose call asked for a schema, and only while that call
   runs.
 - The schema check covers `type`, `properties`, `required`,
   `additionalProperties: false`, `items` and `enum`; other keywords pass
@@ -288,6 +288,11 @@ lives at its parent's location, so agents share the session's directory: there
 is no isolated copy per agent yet, and a script that edits files gives each
 agent files of its own.
 
+Owners created for saved workflows and Flow requirements explicitly set the
+session creation body's `location.directory`. OpenCode 2.x session creation is
+global; a directory header alone leaves the owner at the server's default
+directory. Children then inherit that wrong directory, including reply routing.
+
 ### Why replay keys on the prompt and not on the call's position
 
 `resume` runs the script again from the top. Each `agent()` call is keyed by a
@@ -312,6 +317,11 @@ session by the managed config and allowed in the agent's session through
 weighed: every session would still list it in the catalog, and an agent would
 need an `execute` round trip to answer. The text path stays as the fallback
 for an OpenCode the managed config does not reach.
+
+The handoff names the normal direct tool and its `parameters.answer` object.
+Code Mode's `execute` accepts JavaScript programs, so report JSON belongs in the
+direct tool or final text. Correction turns request only final JSON, which
+keeps a failed handoff from repeating a misrouted Code Mode call or project work.
 
 ### Why approval is a stored state and not a held tool call
 

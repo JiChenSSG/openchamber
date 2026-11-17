@@ -20,8 +20,21 @@ through `lib/flow/api.ts`; it does not call providers or privileged shell APIs.
 - Open session follows the selected Ticket's captured node link, even while a
   different Ticket is executing. Missing legacy links fall back to the owner.
 - New requirements capture the template; editing it affects future requirements.
+- Creation accepts a problem description. The server generates its short title
+  and goal; creation errors remain visible inside the dialog without clearing
+  the description. Cards show only one truncated title line.
+- Opening a card exposes board clarification questions and the owner session's
+  subtree forms and permissions inline. The existing form and permission cards
+  own replies.
+  Board answer submission requests resume; native form replies resume their turn.
 
 ## Decisions
+
+### Why card details use inline request cards
+
+Board clarification results and native session requests have different owners.
+Reusing the inline form and permission cards preserves native reply routing.
+Composer docks anchor above an input and would float outside this side panel.
 
 ### Why the board is a main-area page
 

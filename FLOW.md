@@ -10,8 +10,9 @@ The repository's `main` branch remains separate.
 
 Enable Workflows under Settings, General, OpenChamber Tools. Open Task board
 from the sidebar's Pages section or its header button. Choose a project and
-create a requirement with its goal and acceptance criteria. New-worktree is on
-initially. Creation retains a workspace and owner session; Run starts execution.
+describe the problem to create a requirement. The agent generates a short title
+and goal while retaining the original description. New-worktree is on initially.
+Creation retains a workspace and owner session; Run starts execution.
 
 Node settings edit the default template: instructions, agent, model, variant,
 skills, clarification mode and budgets. A new requirement can override it before
@@ -26,8 +27,9 @@ Tickets appear automatically after their identifiers, acceptance and dependency
 graph validate. Review findings return the active Ticket to development. The
 configurable limit defaults to three reviews per Ticket, including the initial
 review, and survives resume. Optional improvements do not block delivery. Open a
-card for the specification, findings, evidence and routing log. Open session
-opens its current/latest node so native questions and permissions are reachable.
+card to answer clarification questions and permissions directly, or inspect the
+specification, findings, evidence and routing log. Submitting board answers
+continues execution. Open session opens its current/latest node.
 
 Accept a finished Ticket to unblock its dependents, then Resume the requirement.
 After all Tickets are accepted, Resume performs integration verification and

@@ -12,7 +12,7 @@ const notes = z.object({ summary: z.string(), evidence: z.array(z.string()) });
 const review = notes.extend({ complete: z.boolean(), findings: z.array(z.object({ file: z.string(), scenario: z.string(), cause: z.string(), fix: z.string() })), suggestions: z.array(z.string()) });
 const boardStateSchema = z.enum(['todo', 'running', 'attention', 'acceptance', 'done']);
 const requirementSchema = z.object({
-  id: z.string(), revision: z.number().int(), title: z.string(), task: z.string(), directory: z.string(), workspace: z.string(), sessionId: z.string(),
+  id: z.string(), revision: z.number().int(), title: z.string(), task: z.string(), goal: z.string().optional(), directory: z.string(), workspace: z.string(), sessionId: z.string(),
   state: boardStateSchema, config: templateSchema,
   artifacts: z.object({ spec: notes.extend({ content: z.string(), acceptance: z.array(z.string()) }).optional(), verify: review.optional(), release: notes.optional() }),
   tickets: z.array(z.object({ id: z.string(), title: z.string(), description: z.string(), acceptance: z.array(z.string()), blockedBy: z.array(z.string()), state: boardStateSchema, reviewUsed: z.number(), elapsedMs: z.number(), lastRunId: z.string().optional(), development: notes.nullable(), review: review.nullable() })),
@@ -40,5 +40,5 @@ const json = <T,>(value: T) => ({ headers: { 'Content-Type': 'application/json' 
 export const readFlowBoard = (directory: string, signal?: AbortSignal) => request(`/api/openchamber/flow?directory=${encodeURIComponent(directory)}`, boardSchema, { signal });
 export const readFlowTemplate = (signal?: AbortSignal) => request('/api/openchamber/flow/template', templateSchema, { signal });
 export const saveFlowTemplate = (config: FlowTemplate) => request('/api/openchamber/flow/template', templateSchema, { method: 'PUT', ...json(config) });
-export const createFlowRequirement = (input: { title: string; task: string; directory: string; runInWorktree: boolean; config: FlowTemplate }) => request('/api/openchamber/flow', requirementSchema, { method: 'POST', ...json(input) });
-export const actOnFlow = (record: FlowRequirement, action: 'start' | 'stop' | 'answer' | 'accept', extra: { ticketId?: string; answers?: string[] } = {}) => request(`/api/openchamber/flow/${encodeURIComponent(record.id)}/${action}`, requirementSchema, { method: 'POST', ...json({ revision: record.revision, ...extra }) });
+export const createFlowRequirement = (input: { task: string; directory: string; runInWorktree: boolean; config: FlowTemplate }) => request('/api/openchamber/flow', requirementSchema, { method: 'POST', ...json(input) });
+export const actOnFlow = (record: FlowRequirement, action: 'start' | 'stop' | 'answer' | 'accept', extra: { ticketId?: string; answers?: string[]; resume?: boolean } = {}) => request(`/api/openchamber/flow/${encodeURIComponent(record.id)}/${action}`, requirementSchema, { method: 'POST', ...json({ revision: record.revision, ...extra }) });

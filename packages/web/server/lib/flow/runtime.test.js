@@ -14,11 +14,12 @@ const ticket = (id, blockedBy = []) => ({ id, title: id, description: `Deliver $
 const cleanReview = { ...notes, complete: true, findings: [], suggestions: ['Optional improvement'] };
 const issue = { file: 'module.js:5', scenario: 'Normal input', cause: 'Incorrect output', fix: 'Correct the output' };
 
-const harness = async ({ results = {}, resultFactories = {}, limit = 3, decisions, fsImpl = fs, isEnabled = async () => true, runStep } = {}) => {
+const harness = async ({ results = {}, resultFactories = {}, limit = 3, decisions, fsImpl = fs, isEnabled = async () => true, runStep, generate, worktrees } = {}) => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'flow-runtime-'));
   roots.push(root);
   const store = createFlowStore({ fsPromises: fsImpl, path, dataDir: root });
   const calls = [];
+  const sessions = [];
   const completed = new Map();
   const routerInputs = [];
   const workflows = { async runStep(input) {
@@ -34,14 +35,14 @@ const harness = async ({ results = {}, resultFactories = {}, limit = 3, decision
   } };
   const dependencies = {
     store, workflows: runStep ? { runStep } : workflows, isEnabled,
-    agentSessions: { createSession: async () => 'owner-fixture' },
-    worktrees: { isGitRepository: async () => true, create: async () => ({ directory: '/fixture-worktree' }) },
-    generate: async (input) => {
+    agentSessions: { createSession: async ({ directory }) => { sessions.push(directory); return 'owner-fixture'; } },
+    worktrees: worktrees ?? { isGitRepository: async () => true, create: async () => ({ directory: '/fixture-worktree' }) },
+    generate: generate ?? (async (input) => {
       routerInputs.push(input);
       const snapshot = JSON.parse(input.prompt);
       const action = decisions?.(snapshot) ?? snapshot.allowedActions.find((entry) => entry.node === 'spec') ?? snapshot.allowedActions[0];
       return { text: JSON.stringify({ ...action, reason: 'Choose the legal next action' }) };
-    },
+    }),
   };
   const runtime = createFlowRuntime(dependencies);
   const config = defaultTemplate();
@@ -50,12 +51,74 @@ const harness = async ({ results = {}, resultFactories = {}, limit = 3, decision
   config.nodes.review.model = 'fixture/reviewer';
   config.nodes.review.variant = 'fast';
   const requirement = await runtime.create({ directory: '/fixture', title: 'Feature', task: 'Deliver a feature', config });
-  return { runtime, store, requirement, calls, routerInputs, root, completed,
+  return { runtime, store, requirement, calls, routerInputs, root, completed, sessions,
     reopen: () => createFlowRuntime({ ...dependencies, store: createFlowStore({ fsPromises: fs, path, dataDir: root }) }),
   };
 };
 
 describe('Flow task delivery', () => {
+  it('generates a title and goal from a description while retaining the original request across restart', async () => {
+    const { runtime, reopen } = await harness({ generate: async () => ({ text: JSON.stringify({ title: 'Greeting file', goal: 'Create greeting.txt with exactly Hello flow.' }) }) });
+    const task = 'Please create greeting.txt containing exactly Hello flow. Keep the README unchanged.';
+    const record = await runtime.create({ directory: '/fixture', task });
+    expect(record).toMatchObject({ title: 'Greeting file', goal: 'Create greeting.txt with exactly Hello flow.', task, state: 'todo' });
+    const restored = await reopen().list('/fixture');
+    expect(restored.requirements.find((entry) => entry.id === record.id)).toMatchObject({ title: record.title, goal: record.goal, task });
+  });
+
+  it.each(['unavailable', 'malformed', 'invalid'])('creates no workspace or requirement when intake is %s', async (mode) => {
+    let workspaces = 0;
+    const { runtime, store } = await harness({
+      generate: async () => {
+        if (mode === 'unavailable') throw new Error('Model unavailable');
+        return { text: mode === 'malformed' ? 'not json' : JSON.stringify({ title: 'Title without a goal' }) };
+      },
+      worktrees: { isGitRepository: async () => true, create: async () => { workspaces += 1; return { directory: '/fixture-worktree' }; } },
+    });
+    await expect(runtime.create({ directory: '/fixture', task: 'Describe the new behavior' })).rejects.toThrow();
+    expect(workspaces).toBe(1);
+    expect(await store.all()).toHaveLength(1);
+  });
+
+  it('refuses failed isolation without admitting a session in the checkout', async () => {
+    let rejectWorktree = false;
+    const { runtime, store, sessions } = await harness({ worktrees: {
+      isGitRepository: async () => true,
+      create: async () => { if (rejectWorktree) throw new Error('Git worktree creation failed'); return { directory: '/fixture-worktree' }; },
+    } });
+    rejectWorktree = true;
+    await expect(runtime.create({ title: 'Blocked', task: 'Do not use the checkout', directory: '/fixture' })).rejects.toThrow('Git worktree creation failed');
+    expect(await store.all()).toHaveLength(1);
+    expect(sessions).toEqual(['/fixture-worktree']);
+  });
+
+  it('continues execution after the board submits clarification answers', async () => {
+    const { runtime, requirement } = await harness({
+      decisions: (state) => state.allowedActions.find((entry) => entry.node === 'clarify') ?? state.allowedActions[0],
+      resultFactories: { clarify: (attempt) => ({ ...notes, questions: attempt === 1 ? ['Which greeting?'] : [] }) },
+    });
+    const record = await runtime.create({ directory: '/fixture', title: 'Greeting', task: 'Write a greeting', config: { ...requirement.config, clarification: 'auto' } });
+    await runtime.start(record.id);
+    const waiting = await runtime.waitForIdle(record.id);
+    await runtime.answer(waiting.id, ['Hello flow'], waiting.revision, true);
+    const resumed = await runtime.waitForIdle(record.id);
+    expect(resumed).toMatchObject({ questions: [], answers: [{ question: 'Which greeting?', answer: 'Hello flow' }] });
+    expect(resumed.tickets[0]).toMatchObject({ id: 'T1', state: 'acceptance' });
+  });
+
+  it('pauses an empty-evidence clarification without advancing to specification', async () => {
+    const { runtime, requirement, calls } = await harness({
+      decisions: (state) => state.allowedActions.find((entry) => entry.node === 'clarify') ?? state.allowedActions[0],
+      results: { clarify: { summary: 'Filename needs confirmation', evidence: [], questions: ['Which filename?'] } },
+    });
+    const record = await runtime.create({ directory: '/fixture', title: 'Greeting', task: 'Confirm the filename first', config: { ...requirement.config, clarification: 'auto' } });
+    await runtime.start(record.id);
+    const waiting = await runtime.waitForIdle(record.id);
+    expect(waiting).toMatchObject({ state: 'attention', questions: [], pending: null });
+    expect(waiting.error).toContain('evidence');
+    expect(calls.map((entry) => entry.node)).toEqual(['clarify']);
+  });
+
   it('stops a board node through the tool and retains its checkpoint', async () => {
     let markStarted;
     const started = new Promise((resolve) => { markStarted = resolve; });
@@ -177,6 +240,20 @@ describe('Flow task delivery', () => {
     const reconciled = await restarted.waitForIdle(accepted.id);
     expect(reconciled.tickets[0]).toMatchObject({ state: 'acceptance', reviewUsed: 1 });
     expect(calls.filter((entry) => entry.node === 'review')).toHaveLength(1);
+  });
+
+  it('offers only frontier nodes and ticket IDs to the routing model, including pause', async () => {
+    const { runtime, requirement, routerInputs } = await harness();
+    await runtime.start(requirement.id);
+    await runtime.waitForIdle(requirement.id);
+    const tickets = routerInputs.find((input) => JSON.parse(input.prompt).allowedActions.some((action) => action.node === 'tickets'));
+    const develop = routerInputs.find((input) => JSON.parse(input.prompt).allowedActions.some((action) => action.node === 'develop'));
+    expect(tickets.responseSchema.properties.node.enum).toEqual(['tickets', 'pause']);
+    expect(JSON.parse(tickets.prompt).actionPurposes.tickets).toMatch(/\S/);
+    expect(JSON.parse(tickets.prompt).actionPurposes.pause).toMatch(/\S/);
+    expect(tickets.responseSchema.properties.ticketId).toMatchObject({ const: null });
+    expect(develop.responseSchema.properties.node.enum).toEqual(['develop', 'pause']);
+    expect(develop.responseSchema.properties.ticketId.enum).toEqual([null, 'T1']);
   });
 
   it('refuses a Router action outside the allowed frontier', async () => {
